@@ -1,0 +1,63 @@
+:root {
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+  width: 500px;
+  background-color: #302F58;
+}
+
+.hidden {
+  display: none;
+}
+
+button {
+  border: none;
+  width: 100%;
+  margin: 3% auto;
+  padding: 4px;
+  border-radius: 25px;
+  text-align: center;
+  font-size: 1.5em;
+  cursor: pointer;
+  background-color: #e5f2f2;
+}
+
+button:hover {
+  background-color: #007712;
+}
+
+hr.line {
+    border-top: 1px solid white;
+  }
+
+h1 {
+    color: white;
+    margin-top: 1em;
+}
+
+p {
+    color: white;
+}
+
+.word-info {
+    max-width: fit-content;
+    margin-inline: auto;
+}
+
+.example {
+    font-size: 1em;
+    text-indent: 3px;
+    padding: 5px;
+    margin: 0.5em 1;
+    border: 2px solid #ccc;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    width: 480px;
+
+}
+
+.dropdown {
+    width: 200px;
+}
