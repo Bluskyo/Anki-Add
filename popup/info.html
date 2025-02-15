@@ -3,14 +3,17 @@
     <head>
         <meta charset="utf-8" />
         <link rel="stylesheet" href="info.css" />
+
+        <script src="info.js"></script>
+
     </head>
 
     <body>
         <div class="word-info"> 
-            <h1>Word</h1>
-            <p>Classification</p>
-            <p>Tag</p>
-            <p>Meaning</p>
+            <p id="selected-text"></p>
+            <p>{classification}</p>
+            <p>{tag}</p>
+            <p>{meaning}</p>
         </div>
 
         <hr class="line">
@@ -28,7 +31,6 @@
           <button>ADD</button>
         </div>
 
-        <script src="ankiAdd.js"></script>
     </body>
 
 
