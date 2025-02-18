@@ -14,13 +14,22 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             })
             .then(data => {
                 browser.storage.local.set({ 
+                    selectedText: message.text,
                     reading: data.reading, 
                     meaning: data.gloss,
                     pos: data.pos
                  }).then(() => {});
             })
-            .catch(error => console.log("Error! ", error))
-    
+            .catch(error => 
+                console.log("Error! ", error),
+                
+                browser.storage.local.set({ 
+                    selectedText: `Could not find: "${message.text}"`,
+                    reading: "", 
+                    meaning: "",
+                    pos: ""
+                 }).then(() => {})
+            )
 
     } else if (message.action === "getText") {
         browser.storage.local.get([
@@ -29,8 +38,9 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             "meaning", 
             "pos"])
             .then((result) => {
-                sendResponse({ text: result.selectedText, 
-                    re: result.reading, 
+                sendResponse({ 
+                    text: result.selectedText, 
+                    reading: result.reading, 
                     meaning: result.meaning, 
                     pos: result.pos|| "" });
         });
