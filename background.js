@@ -8,7 +8,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             .then(res => {
                 if (res.ok) {
                     return res.json()
-                } else {
+                } else if (res.status == 404) {
                     throw new Error("Could not find word!")
                 }
             })
@@ -20,9 +20,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     pos: data.pos
                  }).then(() => {});
             })
-            .catch(error => 
-                console.log("Error! ", error),
-                
+            .catch(() =>                 
                 browser.storage.local.set({ 
                     selectedText: `Could not find: "${message.text}"`,
                     reading: "", 
@@ -42,7 +40,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     text: result.selectedText, 
                     reading: result.reading, 
                     meaning: result.meaning, 
-                    pos: result.pos|| "" });
+                    pos: result.pos || "" });
         });
 
         return true; // keeps the response channel open for async func
