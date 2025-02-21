@@ -68,7 +68,7 @@ async function addNote(){
 
 async function getExample(){
     const example =  document.getElementById("example");
-    browser.storage.local.set({example: example.value});
+    if (example.value) browser.storage.local.set({example: example.value});
 };
 
 // gets decks from anki and saves chosen deck.
