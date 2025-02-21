@@ -29,7 +29,50 @@ function invoke(action, version, params={}) {
 }
 
 //await invoke('createDeck', 6, {deck: 'test1'});
-const result = invoke('deckNames', 6).then((decks) => {
+
+// adds the note to anki deck. 
+async function addNote(){
+    const fromStorage = await browser.storage.local.get();
+
+    //const test = fromStorage.pos.replaceAll(" ", "_")
+    //const test2 = test.split("_ ").join()
+    //const test3 = test2.replaceAll(",_", " ")
+
+    invoke('addNote', 6, {
+        "note": {
+            "deckName": fromStorage.selectedDeck, 
+            "modelName": "Automated Flashcard Note", 
+            "fields": {
+                "Word": fromStorage.selectedText, 
+                "Sentence": fromStorage.example, 
+                "JMdictID": "0000000", 
+                "Furigana": fromStorage.reading, 
+                "Meaning": fromStorage.meaning
+            },
+            "tags": ["AnkiAdd", fromStorage.pos],
+            "options": {
+                "allowDuplicate": false,
+                "duplicateScope": "deck",
+                "duplicateScopeOptions": 
+                {
+                "deckName": "Default",
+                "checkChildren": false,
+                "checkAllModels": false}
+            }
+        }
+    })
+
+    console.log("added");
+
+};
+
+async function getExample(){
+    const example =  document.getElementById("example");
+    browser.storage.local.set({example: example.value});
+};
+
+// gets decks from anki and saves chosen deck.
+invoke('deckNames', 6).then((decks) => {
 
     // gets the decks and display them in the popup window.
     const ankiDecksDropdDown = document.getElementById("anki-decks");
@@ -46,6 +89,7 @@ const result = invoke('deckNames', 6).then((decks) => {
                 }
             }
 
+            // avoids undefined first deck and gets selected deck.
             if (selectedDeck) {
                 let option = document.createElement("option");
                 option.setAttribute("value", selectedDeck);
@@ -54,7 +98,8 @@ const result = invoke('deckNames', 6).then((decks) => {
         
                 ankiDecksDropdDown.appendChild(option);
             }
-
+            
+            // adds rest of available decks to dropdown menu.
             for (let deck of decks) {  
                 if (deck !== selectedDeck){
                     let option = document.createElement("option");
@@ -72,10 +117,19 @@ const result = invoke('deckNames', 6).then((decks) => {
                 browser.storage.local.set({ selectedDeck: selectedOption.text});
             })
         
-    });
+        }
+
+    );
 
 });
 
+// listens to add button on popup window.
+window.onload = () => {
+    document.getElementById("add-button").addEventListener("click", addNote);
+    document.getElementById("example").addEventListener("blur", getExample);
+};
+
+// displays saved info about word.
 browser.runtime.sendMessage({ action: "getText" }).then(response => {
     if (response && response.text) {
         document.getElementById("selected-text").textContent = response.text;

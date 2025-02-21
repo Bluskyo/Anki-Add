@@ -5,7 +5,7 @@ document.addEventListener("mouseup", () => {
 
     let isJapanese = jpRe.test(selection);
 
-    if (selection.length < 20 && isJapanese){
+    if (selection.length < 6 && isJapanese){
         browser.runtime.sendMessage({ action: "sendText", text: selection }).then(() => {
         }).catch(error => console.error("Error sending message:", error));
     }
