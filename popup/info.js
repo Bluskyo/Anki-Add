@@ -67,8 +67,14 @@ async function addNote(){
 };
 
 async function getExample(){
-    const example =  document.getElementById("example");
-    if (example.value) browser.storage.local.set({example: example.value});
+    const example =  document.getElementById("example").value;
+    browser.storage.local.get("selectedText").then((result) => {
+    if (example.includes(result.selectedText) || example.length === 0) {
+            browser.storage.local.set({example: example});
+            document.getElementById("add-button").disabled = false; 
+        }
+        else document.getElementById("add-button").disabled = true; 
+    })
 };
 
 // gets decks from anki and saves chosen deck.
