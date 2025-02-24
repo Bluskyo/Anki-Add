@@ -25,6 +25,8 @@ function invoke(action, version, params={}) {
 
         xhr.open('POST', 'http://127.0.0.1:8765');
         xhr.send(JSON.stringify({action, version, params}));
+    }).catch((error) => {
+        console.error("Error fetching selectedDeck:", error);
     });
 }
 
@@ -79,14 +81,20 @@ async function getExample(){
 
 // gets decks from anki and saves chosen deck.
 invoke('deckNames', 6).then((decks) => {
-
     // gets the decks and display them in the popup window.
     const ankiDecksDropdDown = document.getElementById("anki-decks");
 
-        browser.storage.local.get("selectedDeck").then((result) => {  
+    if (decks == undefined) {
 
+        let option = document.createElement("option");
+        let optionText = document.createTextNode("Couldn't connect to Anki!");
+        option.appendChild(optionText);
+
+        ankiDecksDropdDown.appendChild(option);
+    } else {
+        browser.storage.local.get("selectedDeck").then((result) => {  
             const selectedDeck = result.selectedDeck;
-            
+
             // if other decks are present skips the default deck.
             if(decks.length > 1){
                 decks.shift();   
@@ -116,17 +124,15 @@ invoke('deckNames', 6).then((decks) => {
                     ankiDecksDropdDown.appendChild(option);
                 }
             }
-    
+
             // saves picked deck. 
             document.getElementById("anki-decks").addEventListener("change", (e) => {
                 const selectedOption = e.target.options[e.target.selectedIndex];
                 browser.storage.local.set({ selectedDeck: selectedOption.text});
             })
-        
-        }
 
-    );
-
+        })
+    }
 });
 
 // listens to add button on popup window.
