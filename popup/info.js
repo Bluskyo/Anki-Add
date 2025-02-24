@@ -27,27 +27,58 @@ function invoke(action, version, params={}) {
         xhr.send(JSON.stringify({action, version, params}));
     }).catch((error) => {
         console.error("Error fetching selectedDeck:", error);
-    });
+    })
 }
 
-//await invoke('createDeck', 6, {deck: 'test1'});
-
 // adds the note to anki deck. 
-async function addNote(){
-    const fromStorage = await browser.storage.local.get();
+async function makeNote(){
 
     //const test = fromStorage.pos.replaceAll(" ", "_")
     //const test2 = test.split("_ ").join()
     //const test3 = test2.replaceAll(",_", " ")
 
+    const models = await invoke('modelNames', 6);
+
+    if (models.includes("AnkiAdd")){
+        addNote()
+    } else {
+        createNoteType();
+        addNote()
+    }
+
+};
+
+async function createNoteType() {
+    console.log("creating model:");
+
+    invoke('createModel', 6, 
+        {
+            "modelName": "AnkiAdd",
+            "inOrderFields": ["Word", "Sentence", "JMdictSeq", "Furigana", "Meaning"],
+            "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; } .medium { font-size:30px } .small { font-size: 18px;}",
+            "isCloze": false,
+            "cardTemplates": [
+                {
+                    "Name": "Japanese",
+                    "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div>",
+                    "Back": "<div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div>"
+                }
+            ]
+        }
+    )
+};
+
+async function addNote() {
+    const fromStorage = await browser.storage.local.get();
+
     invoke('addNote', 6, {
         "note": {
             "deckName": fromStorage.selectedDeck, 
-            "modelName": "Automated Flashcard Note", 
+            "modelName": "AnkiAdd", 
             "fields": {
                 "Word": fromStorage.selectedText, 
                 "Sentence": fromStorage.example, 
-                "JMdictID": "0000000", 
+                "JMdictSeq": "0000000", 
                 "Furigana": fromStorage.reading, 
                 "Meaning": fromStorage.meaning
             },
@@ -65,7 +96,6 @@ async function addNote(){
     })
 
     console.log("added");
-
 };
 
 async function getExample(){
@@ -137,7 +167,7 @@ invoke('deckNames', 6).then((decks) => {
 
 // listens to add button on popup window.
 window.onload = () => {
-    document.getElementById("add-button").addEventListener("click", addNote);
+    document.getElementById("add-button").addEventListener("click", makeNote); //dsdaf
     document.getElementById("example").addEventListener("blur", getExample);
 };
 
