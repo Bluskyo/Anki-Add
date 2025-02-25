@@ -39,19 +39,31 @@ async function makeNote(){
 
     const models = await invoke('modelNames', 6);
 
-    if (models.includes("AnkiAdd")){
-        addNote()
-    } else {
+    if (!models.includes("AnkiAdd")){
         createNoteType();
-        addNote()
     }
 
-};
+    const addingNote = await addNote();
+
+    if (addingNote !== null) {
+
+        browser.storage.local.get([
+            "selectedText", 
+            "selectedDeck"]).then((result) => {
+            document.getElementById("status-message").textContent = `Added ${result.selectedText} to ${result.selectedDeck}.😊`;
+        })
+    } else {
+        browser.storage.local.get([
+            "selectedText", 
+            "selectedDeck"]).then((result) => {
+            document.getElementById("status-message").textContent = `Could not add ${result.selectedText} to ${result.selectedDeck}.😔`;
+        })
+    }
+
+} 
 
 async function createNoteType() {
-    console.log("creating model:");
-
-    invoke('createModel', 6, 
+    return await invoke('createModel', 6, 
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Sentence", "JMdictSeq", "Furigana", "Meaning"],
@@ -71,35 +83,40 @@ async function createNoteType() {
 async function addNote() {
     const fromStorage = await browser.storage.local.get();
 
-    invoke('addNote', 6, {
-        "note": {
-            "deckName": fromStorage.selectedDeck, 
-            "modelName": "AnkiAdd", 
-            "fields": {
-                "Word": fromStorage.selectedText, 
-                "Sentence": fromStorage.example, 
-                "JMdictSeq": "0000000", 
-                "Furigana": fromStorage.reading, 
-                "Meaning": fromStorage.meaning
-            },
-            "tags": ["AnkiAdd", fromStorage.pos],
-            "options": {
-                "allowDuplicate": false,
-                "duplicateScope": "deck",
-                "duplicateScopeOptions": 
-                {
-                "deckName": "Default",
-                "checkChildren": false,
-                "checkAllModels": false}
+    if (fromStorage.meaning.length > 0){
+        return await invoke('addNote', 6, {
+            "note": {
+                "deckName": fromStorage.selectedDeck, 
+                "modelName": "AnkiAdd", 
+                "fields": {
+                    "Word": fromStorage.selectedText, 
+                    "Sentence": fromStorage.example, 
+                    "JMdictSeq": fromStorage.jmdictSeq.toString(), 
+                    "Furigana": fromStorage.reading, 
+                    "Meaning": fromStorage.meaning
+                },
+                "tags": ["AnkiAdd", fromStorage.pos],
+                "options": {
+                    "allowDuplicate": false,
+                    "duplicateScope": "deck",
+                    "duplicateScopeOptions": 
+                    {
+                    "deckName": "Default",
+                    "checkChildren": false,
+                    "checkAllModels": false}
+                }
             }
-        }
-    })
+        })
+    } else {
+        return null;
+    }
 
-    console.log("added");
+    
 };
 
 async function getExample(){
     const example =  document.getElementById("example").value;
+
     browser.storage.local.get("selectedText").then((result) => {
     if (example.includes(result.selectedText) || example.length === 0) {
             browser.storage.local.set({example: example});

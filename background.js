@@ -27,8 +27,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     reading: "", 
                     meaning: "",
                     pos: "",
-                    jmdictSeq: ""
-                 }).then(() => {})
+                 }),
             )
 
     } else if (message.action === "getText") {
