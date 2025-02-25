@@ -61,7 +61,7 @@ async function createNoteType() {
                 {
                     "Name": "Japanese",
                     "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div>",
-                    "Back": "<div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div>"
+                    "Back": '<a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div></a><br>{{Meaning}}</div>'
                 }
             ]
         }
