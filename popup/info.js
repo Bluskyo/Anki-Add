@@ -1,3 +1,4 @@
+
 function invoke(action, version, params={}) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -28,7 +29,7 @@ function invoke(action, version, params={}) {
     }).catch((error) => {
         console.error("Error fetching selectedDeck:", error);
     })
-}
+};
 
 // adds the note to anki deck. 
 async function makeNote(){
@@ -60,7 +61,7 @@ async function makeNote(){
         })
     }
 
-} 
+};
 
 async function createNoteType() {
     return await invoke('createModel', 6, 
@@ -83,19 +84,24 @@ async function createNoteType() {
 async function addNote() {
     const fromStorage = await browser.storage.local.get();
 
-    if (fromStorage.meaning.length > 0){
+    const word = document.getElementById("selected-text").textContent;
+    const furigana = document.getElementById("reading").textContent;
+    const meaning = document.getElementById("meaning").textContent;
+    const tags = document.getElementById("tag").textContent;
+
+    if (meaning.length > 0){
         return await invoke('addNote', 6, {
             "note": {
                 "deckName": fromStorage.selectedDeck, 
                 "modelName": "AnkiAdd", 
                 "fields": {
-                    "Word": fromStorage.selectedText, 
+                    "Word": word, 
                     "Sentence": fromStorage.example, 
-                    "JMdictSeq": fromStorage.jmdictSeq.toString(), 
-                    "Furigana": fromStorage.reading, 
-                    "Meaning": fromStorage.meaning
+                    "JMdictSeq": fromStorage.jmdictSeq, 
+                    "Furigana": furigana, 
+                    "Meaning": meaning
                 },
-                "tags": ["AnkiAdd", fromStorage.pos],
+                "tags": ["AnkiAdd", tags],
                 "options": {
                     "allowDuplicate": false,
                     "duplicateScope": "deck",
@@ -103,7 +109,7 @@ async function addNote() {
                     {
                     "deckName": "Default",
                     "checkChildren": false,
-                    "checkAllModels": false}
+                    "checkAllModels": false }
                 }
             }
         })
@@ -114,7 +120,7 @@ async function addNote() {
     
 };
 
-async function getExample(){
+function getExample(){
     const example =  document.getElementById("example").value;
 
     browser.storage.local.get("selectedText").then((result) => {
@@ -184,16 +190,197 @@ invoke('deckNames', 6).then((decks) => {
 
 // listens to add button on popup window.
 window.onload = () => {
-    document.getElementById("add-button").addEventListener("click", makeNote); //dsdaf
+    document.getElementById("add-button").addEventListener("click", makeNote);
     document.getElementById("example").addEventListener("blur", getExample);
 };
 
-// displays saved info about word.
-browser.runtime.sendMessage({ action: "getText" }).then(response => {
-    if (response && response.text) {
-        document.getElementById("selected-text").textContent = response.text;
-        document.getElementById("reading").textContent = response.reading;
-        document.getElementById("meaning").textContent = response.meaning;
-        document.getElementById("tag").textContent = response.pos;
-    }
-}).catch(error => console.error("Error retrieving text:", error));
+// looksup selected word and displays info in popup. 
+browser.storage.local.get("selectedText").then((result) => {
+    // displays saved info about word.
+    browser.runtime.sendMessage({ action: "lookupWord", text: result.selectedText }).then(response => {
+        if (response.data) {
+            const allMeanings = [];
+            const allTags = [];
+
+            for (const definition of response.data.sense) {
+                let strMeaning = "";
+                for (const meaning of definition.gloss){
+                    strMeaning += meaning.text + "; ";
+                };
+                allMeanings.push(strMeaning);
+            };
+
+            for (const definition of response.data.sense) {
+                for (const tag of definition.partOfSpeech){
+                    let value = tagsDict[tag];
+                    allTags.push(value);
+                };
+            };
+
+            document.getElementById("selected-text").textContent = response.data.kanji;
+            document.getElementById("reading").textContent = response.data.kana;
+            document.getElementById("meaning").textContent = allMeanings;
+            document.getElementById("tag").textContent = allTags;
+        };
+
+    }).catch(error => console.error("Error retrieving text:", error));
+});
+
+const tagsDict = {
+    "v5uru": "Godan verb - Uru old class verb (old form of Eru)",
+    "v2g-s": "Nidan verb (lower class) with 'gu' ending (archaic)",
+    "dei": "deity",
+    "ship": "ship name",
+    "leg": "legend",
+    "bra": "Brazilian",
+    "music": "music",
+    "quote": "quotation",
+    "pref": "prefix",
+    "ktb": "Kantou-ben",
+    "rK": "rarely used kanji form",
+    "derog": "derogatory",
+    "abbr": "abbreviation",
+    "exp": "expressions (phrases, clauses, etc.)",
+    "astron": "astronomy",
+    "v2g-k": "Nidan verb (upper class) with 'gu' ending (archaic)",
+    "aux-v": "auxiliary verb",
+    "ctr": "counter",
+    "surg": "surgery",
+    "baseb": "baseball",
+    "serv": "service",
+    "genet": "genetics",
+    "geogr": "geography",
+    "dent": "dentistry",
+    "v5k-s": "Godan verb - Iku/Yuku special class",
+    "horse": "horse racing",
+    "ornith": "ornithology",
+    "v2w-s": "Nidan verb (lower class) with 'u' ending and 'we' conjugation (archaic)",
+    "sK": "search-only kanji form",
+    "rk": "rarely used kana form",
+    "hob": "Hokkaido-ben",
+    "male": "male term or language",
+    "motor": "motorsport",
+    "vidg": "video games",
+    "n-pref": "noun, used as a prefix",
+    "n-suf": "noun, used as a suffix",
+    "suf": "suffix",
+    "hon": "honorific or respectful (sonkeigo) language",
+    "biol": "biology",
+    "pol": "polite (teineigo) language",
+    "vulg": "vulgar expression or word",
+    "v2n-s": "Nidan verb (lower class) with 'nu' ending (archaic)",
+    "mil": "military",
+    "golf": "golf",
+    "min": "mineralogy",
+    "X": "rude or X-rated term (not displayed in educational software)",
+    "sk": "search-only kana form",
+    "jpmyth": "Japanese mythology",
+    "sl": "slang",
+    "fict": "fiction",
+    "art": "art, aesthetics",
+    "stat": "statistics",
+    "cryst": "crystallography",
+    "pathol": "pathology",
+    "photo": "photography",
+    "food": "food, cooking",
+    "n": "noun (common) (futsuumeishi)",
+    "thb": "Touhoku-ben",
+    "fish": "fishing",
+    "v5r-i": "Godan verb with 'ru' ending (irregular verb)",
+    "arch": "archaic",
+    "v1": "Ichidan verb",
+    "bus": "business",
+    "tv": "television",
+    "euph": "euphemistic",
+    "embryo": "embryology",
+    "v2y-k": "Nidan verb (upper class) with 'yu' ending (archaic)",
+    "uk": "word usually written using kana alone",
+    "rare": "rare term",
+    "v2a-s": "Nidan verb with 'u' ending (archaic)",
+    "hanaf": "hanafuda",
+    "figskt": "figure skating",
+    "agric": "agriculture",
+    "given": "given name or forename, gender not specified",
+    "physiol": "physiology",
+    "v5u-s": "Godan verb with 'u' ending (special class)",
+    "chn": "children's language",
+    "ev": "event",
+    "adv": "adverb (fukushi)",
+    "prt": "particle",
+    "vi": "intransitive verb",
+    "v2y-s": "Nidan verb (lower class) with 'yu' ending (archaic)",
+    "kyb": "Kyoto-ben",
+    "vk": "Kuru verb - special class",
+    "grmyth": "Greek mythology",
+    "vn": "irregular nu verb",
+    "electr": "electronics",
+    "gardn": "gardening, horticulture",
+    "adj-kari": "'kari' adjective (archaic)",
+    "vr": "irregular ru verb, plain form ends with -ri",
+    "vs": "noun or participle which takes the aux. verb suru",
+    "internet": "Internet",
+    "vt": "transitive verb",
+    "cards": "card games",
+    "stockm": "stock market",
+    "vz": "Ichidan verb - zuru verb (alternative form of -jiru verbs)",
+    "aux": "auxiliary",
+    "v2h-s": "Nidan verb (lower class) with 'hu/fu' ending (archaic)",
+    "kyu": "Kyuushuu-ben",
+    "noh": "noh",
+    "econ": "economics",
+    "rommyth": "Roman mythology",
+    "ecol": "ecology",
+    "n-t": "noun (temporal) (jisoumeishi)",
+    "psy": "psychiatry",
+    "proverb": "proverb",
+    "company": "company name",
+    "poet": "poetical term",
+    "ateji": "ateji (phonetic) reading",
+    "paleo": "paleontology",
+    "v2h-k": "Nidan verb (upper class) with 'hu/fu' ending (archaic)",
+    "civeng": "civil engineering",
+    "go": "go (game)",
+    "adv-to": "adverb taking the 'to' particle",
+    "ent": "entomology",
+    "unc": "unclassified",
+    "on-mim": "onomatopoeic or mimetic word",
+    "yoji": "yojijukugo",
+    "n-adv": "adverbial noun (fukushitekimeishi)",
+    "print": "printing",
+    "form": "formal or literary term",
+    "osb": "Osaka-ben",
+    "adj-shiku": "'shiku' adjective (archaic)",
+    "Christn": "Christianity",
+    "hum": "humble (kenjougo) language",
+    "obs": "obsolete term",
+    "relig": "religion",
+    "iK": "word containing irregular kanji usage",
+    "conj": "conjunction",
+    "geol": "geology",
+    "anat": "anatomy",
+    "nab": "Nagano-ben",
+    "hist": "historical term",
+    "fam": "familiar language",
+    "myth": "mythology",
+    "gramm": "grammar",
+    "id": "idiomatic expression",
+    "psyanal": "psychoanalysis",
+    "comp": "computing",
+    "creat": "creature",
+    "ik": "word containing irregular kana usage",
+    "adj-i": "adjective (keiyoushi)",
+    "Shinto": "Shinto",
+    "psych": "psychology",
+    "adj-pn": "pre-noun adjectival (rentaishi)",
+    "met": "meteorology",
+    "chem": "chemistry",
+    "sports": "sports",
+    "zool": "zoology",
+    "int": "interjection (kandoushi)",
+    "tradem": "trademark",
+    "net-sl": "Internet slang",
+    "n-pr": "proper noun",
+    "archit": "architecture",
+    "pn": "pronoun",
+    "gikun": "gikun (meaning as reading) or jukujikun (special kanji reading)"
+  };

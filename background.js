@@ -1,51 +1,136 @@
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "sendText") {
-        browser.storage.local.set({ selectedText: message.text }).then(() => {});
+const dbName = "jpdict";
+const dbVersion = 1;
+var db;
 
-        let selectedText = message.text
+function openDb() {
+  return new Promise((resolve, reject) => {
+    console.log("openDb ...");
+    
+    var req = indexedDB.open(dbName, dbVersion);
 
-        fetch("http://localhost:8080/api/v1/" + selectedText)
-            .then(res => {
-                if (res.ok) {
-                    return res.json()
-                } else if (res.status == 404) {
-                    throw new Error("Could not find word!")
-                }
-            })
-            .then(data => {
-                browser.storage.local.set({ 
-                    selectedText: message.text,
-                    reading: data.reading, 
-                    meaning: data.gloss,
-                    pos: data.pos,
-                    jmdictSeq: data.entry_seq
-                 }).then(() => {});
-            })
-            .catch(() =>                 
-                browser.storage.local.set({ 
-                    selectedText: `Could not find: "${message.text}"`,
-                    reading: "", 
-                    meaning: "",
-                    pos: "",
-                 }),
-            )
+    req.onsuccess = function (evt) {
+      console.log("openDb DONE");
+      db = req.result;
+      resolve(db);
+    };
 
-    } else if (message.action === "getText") {
-        browser.storage.local.get([
-            "selectedText", 
-            "reading", 
-            "meaning", 
-            "pos",
-            "jmdictSeq"])
-            .then((result) => {
-                sendResponse({ 
-                    text: result.selectedText, 
-                    reading: result.reading, 
-                    meaning: result.meaning, 
-                    pos: result.pos,
-                    jmdictSeq: result.entry_seq || "" });
-        });
+    req.onerror = function (evt) {
+      console.error("openDb:", evt.target.errorCode);
+      reject(evt.target.errorCode);
+    };
 
-        return true; // keeps the response channel open for async func
+    // innit db if needed.
+    req.onupgradeneeded = function (evt) {
+      console.log("openDb.onupgradeneeded");
+
+      var store = evt.currentTarget.result.createObjectStore(
+        "JMDict", { keyPath: 'id', autoIncrement: false }
+      );
+
+      store.createIndex("kanjiIndex", "kanji", { unique: false, multiEntry: true });
+      store.createIndex("readingIndex", "kana", { unique: false, multiEntry: true });
+      store.createIndex('meaningIndex', 'sense', { unique: false, multiEntry: true });
+
+      const db = evt.target.result;
+
+      console.log("Reading dictfile...");
+      fetch("data/jmdict-eng-3.6.1.json")
+      .then(response => response.json())
+      .then(json => {
+        addDataToDb(db, json.words);
+      });
     }
+  
+  });
+};
+
+function addDataToDb(db, json){
+ const transaction = db.transaction(["JMDict"], "readwrite");
+ const store = transaction.objectStore("JMDict");
+
+ transaction.oncomplete = (evt) => {
+  console.timeEnd('Execution Time'); // timer end 
+  console.log("Everything is added to indexedDB!");
+ };
+
+ transaction.onerror = (evt) => {
+  console.log("Something went wrong!");
+ };
+
+ console.time('Execution Time'); // timer start
+  json.forEach(word => {
+
+    const wordEntry = {
+      id: word.id, // Use existing ID
+      kanji: word.kanji.map(entry => entry.text), 
+      kanjiCommon: word.kanji.map(entry => entry.common), 
+      kana: word.kana.map(entry => entry.text),  
+      kanaCommon: word.kana.map(entry => entry.common),   
+      sense: word.sense.map(entry => entry)
+    };
+
+    store.add(wordEntry); // id is automatically chosen as id.
+  })
+
+};
+
+function lookupInDb(word){
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      console.error("Database is not initialized yet!");
+      reject("Database not initialized");
+      return;
+    }
+  
+    console.log("looking up word:", word);
+  
+    const request = db
+    .transaction(["JMDict"], "readonly")
+    .objectStore("JMDict")
+    .index("kanjiIndex")
+    .get(word);
+  
+    request.onerror = (evt) => {
+      console.log("Could not find:", word, "in db!");
+      reject("Not found");
+    };
+  
+    request.onsuccess = (evt) => {
+      browser.storage.local.set({ jmdictSeq: request.result.id });
+      resolve(request.result);
+    };
+  
+  });
+
+};
+
+openDb().then(() => {
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "saveSelection") {
+      browser.storage.local.set({ selectedText: message.text });
+    } else if (message.action === "lookupWord") {
+
+      // implement algorithm for finding dictfrom of word.
+      
+      lookupInDb(message.text)
+      .then((result) => {
+        console.log("Result from DB:", result);
+        if (result){
+          sendResponse({ data: result });
+        } else {
+          sendResponse({ data: null });
+        };
+      })
+      .catch((error) => {
+        console.error(error);
+        sendResponse({ data: null });
+      });
+      
+
+    }
+
+    return true; // keeps the response channel open for async func
+    
+  });
+
 });
