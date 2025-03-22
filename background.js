@@ -2,6 +2,7 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
+// innit
 function openDb() {
   return new Promise((resolve, reject) => {
     console.log("openDb ...");
@@ -73,8 +74,9 @@ function addDataToDb(db, json){
   })
 
 };
+// ----
 
-function lookupInDb(word){
+function lookupInDb(word, index){
   return new Promise((resolve, reject) => {
     if (!db) {
       console.error("Database is not initialized yet!");
@@ -87,7 +89,7 @@ function lookupInDb(word){
     const request = db
     .transaction(["JMDict"], "readonly")
     .objectStore("JMDict")
-    .index("kanjiIndex")
+    .index(index)
     .get(word);
   
     request.onerror = (evt) => {
@@ -104,29 +106,48 @@ function lookupInDb(word){
 
 };
 
+const kanjiRe = /[一-龯]/
+
 openDb().then(() => {
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "saveSelection") {
-      browser.storage.local.set({ selectedText: message.text });
-    } else if (message.action === "lookupWord") {
-
-      // implement algorithm for finding dictfrom of word.
-      
-      lookupInDb(message.text)
-      .then((result) => {
-        console.log("Result from DB:", result);
-        if (result){
-          sendResponse({ data: result });
-        } else {
-          sendResponse({ data: null });
-        };
-      })
-      .catch((error) => {
-        console.error(error);
-        sendResponse({ data: null });
+      browser.storage.local.set({
+          selectedText: message.text,
+          savedURL: message.url
       });
+    } else if (message.action === "lookupWord") {
       
+      const containsKanji = kanjiRe.test(message.text);
 
+      // optimistic search:
+      if (containsKanji){
+        lookupInDb(message.text, "kanjiIndex")
+        .then((result) => {
+          console.log("Result from DB:", result);
+          if (result){
+            sendResponse({ data: result });
+          } else {
+            sendResponse({ data: null });
+          };
+        }).catch((error) => {
+          console.error(error);
+          sendResponse({ data: null });
+        });
+      } else {
+        lookupInDb(message.text, "readingIndex")
+        .then((result) => {
+          console.log("Result from DB:", result);
+          if (result){
+            sendResponse({ data: result });
+          } else {
+            sendResponse({ data: null });
+          };
+        }).catch((error) => {
+          console.error(error);
+          sendResponse({ data: null });
+        });
+
+      }
     }
 
     return true; // keeps the response channel open for async func

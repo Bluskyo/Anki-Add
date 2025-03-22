@@ -67,7 +67,7 @@ async function createNoteType() {
     return await invoke('createModel', 6, 
         {
             "modelName": "AnkiAdd",
-            "inOrderFields": ["Word", "Sentence", "JMdictSeq", "Furigana", "Meaning"],
+            "inOrderFields": ["Word", "Sentence", "JMdictSeq", "Furigana", "Meaning", "From"],
             "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; } .medium { font-size:30px } .small { font-size: 18px;}",
             "isCloze": false,
             "cardTemplates": [
@@ -84,10 +84,11 @@ async function createNoteType() {
 async function addNote() {
     const fromStorage = await browser.storage.local.get();
 
-    const word = document.getElementById("selected-text").textContent;
+    const word = document.getElementById("selected-text").textContent.split(",")[0]; // Temperary: should be able to choose this.
     const furigana = document.getElementById("reading").textContent;
     const meaning = document.getElementById("meaning").textContent;
     const tags = document.getElementById("tag").textContent;
+    const savedURL = fromStorage.savedURL;
 
     if (meaning.length > 0){
         return await invoke('addNote', 6, {
@@ -99,7 +100,8 @@ async function addNote() {
                     "Sentence": fromStorage.example, 
                     "JMdictSeq": fromStorage.jmdictSeq, 
                     "Furigana": furigana, 
-                    "Meaning": meaning
+                    "Meaning": meaning,
+                    "From": savedURL
                 },
                 "tags": ["AnkiAdd", tags],
                 "options": {
@@ -192,7 +194,7 @@ invoke('deckNames', 6).then((decks) => {
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", makeNote);
     document.getElementById("example").addEventListener("blur", getExample);
-};
+}
 
 // looksup selected word and displays info in popup. 
 browser.storage.local.get("selectedText").then((result) => {
@@ -203,19 +205,17 @@ browser.storage.local.get("selectedText").then((result) => {
             const allTags = [];
 
             for (const definition of response.data.sense) {
-                let strMeaning = "";
-                for (const meaning of definition.gloss){
-                    strMeaning += meaning.text + "; ";
-                };
+                const strMeaning  = definition.gloss.map(meaning => meaning.text).join("; ");
                 allMeanings.push(strMeaning);
-            };
+            }
 
             for (const definition of response.data.sense) {
                 for (const tag of definition.partOfSpeech){
-                    let value = tagsDict[tag];
+                    const value = tagsDict[tag];
+                    if (!value) console.log("Could not find tag: ", value);
                     allTags.push(value);
                 };
-            };
+            }
 
             document.getElementById("selected-text").textContent = response.data.kanji;
             document.getElementById("reading").textContent = response.data.kana;
@@ -224,7 +224,7 @@ browser.storage.local.get("selectedText").then((result) => {
         };
 
     }).catch(error => console.error("Error retrieving text:", error));
-});
+})
 
 const tagsDict = {
     "v5uru": "Godan verb - Uru old class verb (old form of Eru)",
@@ -382,5 +382,8 @@ const tagsDict = {
     "n-pr": "proper noun",
     "archit": "architecture",
     "pn": "pronoun",
-    "gikun": "gikun (meaning as reading) or jukujikun (special kanji reading)"
+    "gikun": "gikun (meaning as reading) or jukujikun (special kanji reading)",
+    // missing tag for some reason?:
+    "adj-na": "na-adjective (keiyodoshi)"
+
   };
