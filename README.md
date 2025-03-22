@@ -3,7 +3,7 @@ Firefox extension for quickly adding words to anki
 
 ## Features🔥
 <ul>
-  <li> <a href="https://play.google.com/store/apps/details?id=com.mindtwisted.kanjistudy/">Japanese Kanji Study</a> integration in anki cards.</li>
+  <li> <a href="https://play.google.com/store/apps/details?id=com.mindtwisted.kanjistudy/">Japanese Kanji Study</a> integration in anki cards. (only android)</li>
 </ul> 
 
 ## Sources📄
