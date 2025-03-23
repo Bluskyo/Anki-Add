@@ -91,6 +91,8 @@ async function addNote() {
     const tags = document.getElementById("tag").textContent;
     const savedURL = fromStorage.savedURL;
 
+
+
     // for highlighting word in anki
     const sentence = fromStorage.sentence; 
     const regex = new RegExp(word, "g"); // globalflag to match every occurence
@@ -131,7 +133,9 @@ async function addNote() {
 
 // prevents sentences that does not include the word from being added.
 function getSentence(){
-    const sentence =  document.getElementById("sentence").value;
+    let sentence =  document.getElementById("sentence").value;
+
+    sentence = sentence.replace(/ /g, '<br>');
 
     browser.storage.local.get("selectedText").then((result) => {
     if (sentence.includes(result.selectedText) || sentence.length === 0) {
@@ -393,6 +397,7 @@ const tagsDict = {
     "gikun": "gikun (meaning as reading) or jukujikun (special kanji reading)",
     // missing tag for some reason?:
     "adj-na": "na-adjective (keiyodoshi)",
-    "adj-no": "Noun which may take the genitive case particle 'no'"
+    "adj-no": "Noun which may take the genitive case particle 'no'",
+    "v5r" : "Godan verb with 'ru' ending"
 
   };
