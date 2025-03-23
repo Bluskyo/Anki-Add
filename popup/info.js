@@ -68,7 +68,7 @@ async function createNoteType() {
     return await invoke('createModel', 6, 
         {
             "modelName": "AnkiAdd",
-            "inOrderFields": ["Word", "Sentence", "JMdictSeq", "Furigana", "Meaning", "From"],
+            "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From"],
             "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; } .medium { font-size:30px } .small { font-size: 18px;}",
             "isCloze": false,
             "cardTemplates": [
@@ -86,11 +86,17 @@ async function addNote() {
     const fromStorage = await browser.storage.local.get();
 
     const word = document.getElementById("selected-text").textContent.split(",")[0]; // Temperary: should be able to choose this.
-    const furigana = document.getElementById("reading").textContent;
+    const furigana = document.getElementById("reading").textContent.split(",")[0];
     const meaning = document.getElementById("meaning").textContent;
     const tags = document.getElementById("tag").textContent;
     const savedURL = fromStorage.savedURL;
 
+    // for highlighting word in anki
+    const sentence = fromStorage.sentence; 
+    const regex = new RegExp(word, "g"); // globalflag to match every occurence
+    const formattedSentence = sentence.replace(regex, `<mark>${word}</mark>`);
+
+    // adds all info to anki note.
     if (meaning.length > 0){
         return await invoke('addNote', 6, {
             "note": {
@@ -98,7 +104,7 @@ async function addNote() {
                 "modelName": "AnkiAdd", 
                 "fields": {
                     "Word": word, 
-                    "Sentence": fromStorage.example, 
+                    "Sentence": formattedSentence, 
                     "JMdictSeq": fromStorage.jmdictSeq, 
                     "Furigana": furigana, 
                     "Meaning": meaning,
@@ -123,12 +129,13 @@ async function addNote() {
     
 };
 
-function getExample(){
-    const example =  document.getElementById("example").value;
+// prevents sentences that does not include the word from being added.
+function getSentence(){
+    const sentence =  document.getElementById("sentence").value;
 
     browser.storage.local.get("selectedText").then((result) => {
-    if (example.includes(result.selectedText) || example.length === 0) {
-            browser.storage.local.set({example: example});
+    if (sentence.includes(result.selectedText) || sentence.length === 0) {
+            browser.storage.local.set({sentence: sentence});
             document.getElementById("add-button").disabled = false; 
         }
         else document.getElementById("add-button").disabled = true; 
@@ -194,7 +201,7 @@ invoke('deckNames', 6).then((decks) => {
 // listens to add button on popup window.
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", makeNote);
-    document.getElementById("example").addEventListener("blur", getExample);
+    document.getElementById("sentence").addEventListener("blur", getSentence);
 }
 
 // looksup selected word and displays info in popup. 
