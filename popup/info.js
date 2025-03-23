@@ -41,6 +41,7 @@ async function makeNote(){
     const models = await invoke('modelNames', 6);
 
     if (!models.includes("AnkiAdd")){
+        console.log("missing Anki note type! creating...")
         createNoteType();
     }
 
@@ -74,7 +75,7 @@ async function createNoteType() {
                 {
                     "Name": "Japanese",
                     "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div>",
-                    "Back": '<a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div></a><br>{{Meaning}}</div>'
+                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div></a><br>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/word/{{Word}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=medium>{{Sentence}}</div></a><br>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script>'
                 }
             ]
         }
@@ -212,7 +213,7 @@ browser.storage.local.get("selectedText").then((result) => {
             for (const definition of response.data.sense) {
                 for (const tag of definition.partOfSpeech){
                     const value = tagsDict[tag];
-                    if (!value) console.log("Could not find tag: ", value);
+                    if (!value) console.log("Could not find tag:", tag);
                     allTags.push(value);
                 };
             }
@@ -384,6 +385,7 @@ const tagsDict = {
     "pn": "pronoun",
     "gikun": "gikun (meaning as reading) or jukujikun (special kanji reading)",
     // missing tag for some reason?:
-    "adj-na": "na-adjective (keiyodoshi)"
+    "adj-na": "na-adjective (keiyodoshi)",
+    "adj-no": "Noun which may take the genitive case particle 'no'"
 
   };
