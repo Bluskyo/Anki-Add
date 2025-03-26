@@ -94,12 +94,18 @@ function lookupInDb(word, index){
   
     request.onerror = (evt) => {
       console.log("Could not find:", word, "in db!");
+      console.error("Error!:", evt.error);
       reject("Not found");
     };
   
     request.onsuccess = (evt) => {
-      browser.storage.local.set({ jmdictSeq: request.result.id });
-      resolve(request.result);
+      if(request.result) {
+        browser.storage.local.set({ jmdictSeq: request.result.id });
+        resolve(request.result);
+      } else {
+        reject("Not found");
+      }
+
     };
   
   });
@@ -113,13 +119,18 @@ openDb().then(() => {
     if (message.action === "saveSelection") {
       browser.storage.local.set({
           selectedText: message.text,
+          sentence: "", // clears sentence from previous sentence.
           savedURL: message.url
       });
+      sendResponse({ status: "success" }); // avoids "Promised response from onMessage listener went out of scope".
+
     } else if (message.action === "lookupWord") {
       
       const containsKanji = kanjiRe.test(message.text);
 
       // optimistic search:
+
+      // if search doesnt first time, its not a noun, therefore can start finding out if word is adj or verb 
       if (containsKanji){
         lookupInDb(message.text, "kanjiIndex")
         .then((result) => {
@@ -155,3 +166,51 @@ openDb().then(() => {
   });
 
 });
+
+const verbFormNames = {
+"ない" : "negative",
+"ます" : "polite",
+"ません" : "polite negative",
+"た" : "past", // multiple
+"なかった" : "past negative",
+"ました" : "polite past",
+"ませんでした" : "polite negative",
+"て" : "te-form",
+"なくて" : "te-form negative",
+//"れる" : "potential", // multiple
+//"れない" : "potential negative",
+//"ない1" : "passive",
+//"ない2" : "passive negative",
+//"ない3" : "causative",
+//"ない4" : "causative negative",
+"せられる" : "causative passive",
+"せられない" : "causative passive negative",
+//"ない5" : "negative",
+"な" : "imperative negative",
+"れば" : "conditional ba-form", // multiple
+"なければ" : "conditional ba-form negative",
+"たら" : "conditional tara-form",
+"なかったら" : "conditional ba-form negative",
+
+};
+
+const adjectiveFormNames = {
+    "さ" : "objective-form",
+    // i-adjectives: く　-> い remove rest to find stem.
+    "く" : "adverbial",
+    "くない" : "negative",
+    "かった" : "past",
+    "くなかった" : "past negative",
+    "くて" : "te-form",
+    "くなくて" : "te-form negative",
+    "ければ" : "provisional-form",
+    "くなければ" : "provisional-form negative",
+    "かったら" : "conditional",
+    "くなかったら" : "conditional negative",
+    "くなきゃ" : "conditional negative (colloquial)",
+    // noun, na-adjectives: remove these to find stem 
+    "に" : "adverbial",
+    "じゃない" : "negative",
+    "だった" : "past",
+    "じゃなかった" : "negative"
+};

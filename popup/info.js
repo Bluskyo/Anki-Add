@@ -233,11 +233,19 @@ browser.storage.local.get("selectedText").then((result) => {
             document.getElementById("reading").textContent = response.data.kana;
             document.getElementById("meaning").textContent = allMeanings;
             document.getElementById("tag").textContent = allTags;
-        };
+        } else {
+            browser.storage.local.get("selectedText").then((result) => {
+
+                document.getElementById("selected-text").textContent = `could not find: "${result.selectedText}"`;
+                document.getElementById("reading").textContent = "";
+                document.getElementById("meaning").textContent = "";
+                document.getElementById("tag").textContent = "";
+                
+            })
+        }
 
     }).catch(error => console.error("Error retrieving text:", error));
 })
-
 
 const tagsDict = { 
     "v5uru":"Godan verb - Uru old class verb (old form of Eru)",
@@ -506,42 +514,5 @@ const tagsDict = {
     "ksb":"Kansai-ben",
     "pn":"pronoun",
     "gikun":"gikun (meaning as reading) or jukujikun (special kanji reading)"
-};
-
-const verbFormNames = {
-"ない" : "negative",
-"ます" : "polite",
-"ません" : "polite negative",
-"た" : "past", // multiple
-"なかった" : "past negative",
-"ました" : "polite past",
-"ませんでした" : "polite negative",
-"て" : "te-form",
-"なくて" : "te-form negative",
-//"れる" : "potential", // multiple
-//"れない" : "potential negative",
-//"ない1" : "passive",
-//"ない2" : "passive negative",
-//"ない3" : "causative",
-//"ない4" : "causative negative",
-"せられる" : "causative passive",
-"せられない" : "causative passive negative",
-//"ない5" : "negative",
-"な" : "imperative negative",
-"れば" : "conditional ba-form", // multiple
-"なければ" : "conditional ba-form negative",
-"たら" : "conditional tara-form",
-"なかったら" : "conditional ba-form negative",
-
-};
-
-const adjectiveFormNames = {
-    // i-adjectives:
-    "くない" : "negative",
-    "かった" : "past",
-    "くなかった" : "past negative",
-    // na-adjectives:
-    "じゃない" : "negative",
-    "だった" : "past",
-    "じゃなかった" : "negative",
-};
+  };
+  
