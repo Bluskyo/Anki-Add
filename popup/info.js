@@ -211,17 +211,18 @@ window.onload = () => {
 // looksup selected word and displays info in popup. 
 browser.storage.local.get("selectedText").then((result) => {
     // displays saved info about word.
-    browser.runtime.sendMessage({ action: "lookupWord", text: result.selectedText }).then(response => {
-        if (response.data) {
+    browser.runtime.sendMessage({ action: "getData", text: result.selectedText }).then(response => {
+        console.log("popup", response);
+        if (response) {
             const allMeanings = [];
             const allTags = [];
 
-            for (const definition of response.data.sense) {
+            for (const definition of response.sense) {
                 const strMeaning  = definition.gloss.map(meaning => meaning.text).join("; ");
                 allMeanings.push(strMeaning);
             }
 
-            for (const definition of response.data.sense) {
+            for (const definition of response.sense) {
                 for (const tag of definition.partOfSpeech){
                     const value = tagsDict[tag];
                     if (!value) console.log("Could not find tag:", tag);
@@ -229,8 +230,8 @@ browser.storage.local.get("selectedText").then((result) => {
                 };
             }
 
-            document.getElementById("selected-text").textContent = response.data.kanji;
-            document.getElementById("reading").textContent = response.data.kana;
+            document.getElementById("selected-text").textContent = response.kanji;
+            document.getElementById("reading").textContent = response.kana;
             document.getElementById("meaning").textContent = allMeanings;
             document.getElementById("tag").textContent = allTags;
         } else {

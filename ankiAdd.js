@@ -5,7 +5,7 @@ document.addEventListener("mouseup", () => {
 
     let isJapanese = japaneseRE.test(selection);
 
-    if (selection.length < 6 && isJapanese){
+    if (isJapanese){
         let currentLocation = window.location.href;
         browser.runtime.sendMessage({
             action: "saveSelection",
