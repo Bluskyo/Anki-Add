@@ -116,7 +116,7 @@ function findConjugation(word){
 
   let conjugationData = {
     wordClass : "",
-    form: "",
+    form: [],
     stem: "",
   };
 
@@ -130,7 +130,9 @@ function findConjugation(word){
     if (inflectionInfo) {
       console.log("found inflection:", inflectionInfo, "\non:", inflection);
       lastMatch = i; // save index of conjugation found
-      conjugationData.form += inflectionInfo[0] + " ";
+      if (!conjugationData.form.includes(inflectionInfo[0])) {
+        conjugationData.form.push(inflectionInfo[0]);
+      }
       conjugationData.wordClass = inflectionInfo[1];
     } else if (i <= 0 && !inflectionInfo) {
       if (mutations.includes(lastMatch)){
@@ -157,50 +159,74 @@ function findConjugation(word){
 }
 
 function identifyVerb(wordclass, stem){
-  let dictonaryForm = "";
-
-  const endHiragana = stem.slice(-1);
-  switch(endHiragana) {
-    case "わ":
-    case "い":
-      dictonaryForm = stem.substring(-1, 1) + "う"
+  let dictonaryForm = []; // some verbs have same ending, can result in up to 3 possiable endings
+  switch(wordclass){
+    case "verb":
+      const endHiragana = stem.slice(-1);
+      switch(endHiragana) {
+        case "わ":
+        case "い":
+          dictonaryForm.push(stem.substring(-1, 1) + "う");
+          break;
+        case "た":
+        case "ち":  
+          dictonaryForm.push(stem.substring(-1, 1) + "つ");
+          break;
+        case "ら":
+        case "り":
+          dictonaryForm.push(stem.substring(-1, 1) + "る");
+          break;
+        case "ば":
+        case "び":
+          dictonaryForm.push(stem.substring(-1, 1) + "ぶ");
+          break;
+        case "ま":
+        case "み":
+          dictonaryForm.push(stem.substring(-1, 1) + "む");
+          break;
+        case "か":
+        case "き":
+          dictonaryForm.push(stem.substring(-1, 1) + "く");
+          break;
+        case "が":
+        case "ぎ":
+          dictonaryForm.push(stem.substring(-1, 1) + "ぐ");
+          break;
+        case "さ":
+        case "し":
+          dictonaryForm.push(stem.substring(-1, 1) + "す");
+          break;
+        case "な":
+        case "に":
+          dictonaryForm.push(stem.substring(-1, 1) + "ぬ");
+          break;
+    
+      } 
       break;
-    case "た":
-    case "ち":  
-      dictonaryForm = stem.substring(-1, 1) + "つ"
-      break;
-    case "ら":
-    case "り":
-      dictonaryForm = stem.substring(-1, 1) + "る"
-      break;
-    case "ば":
-    case "び":
-      dictonaryForm = stem.substring(-1, 1) + "ぶ"
-      break; 
-    case "ま":
-    case "み":
-      dictonaryForm = stem.substring(-1, 1) + "む"
-      break; 
-    case "か":
-    case "き":
-      dictonaryForm = stem.substring(-1, 1) + "く"
-      break; 
-    case "が":
-    case "ぎ":
-      dictonaryForm = stem.substring(-1, 1) + "ぐ"
-      break; 
-    case "さ":
-    case "し":
-      dictonaryForm = stem.substring(-1, 1) + "す"
-      break; 
-    case "な":
-    case "に":
-    dictonaryForm = stem.substring(-1, 1) + "ぬ"
-      break;
-
+    //case "verb su":
+    //  dictonaryForm.push(stem.substring(-1, 1) + "す");
+    //  break;
+    //case "verb ku":
+    //  dictonaryForm.push(stem.substring(-1, 1) + "く");
+    //  break;
+    //case "verb gu":
+    //  dictonaryForm.push(stem.substring(-1, 1) + "ぐ");
+    //  break;
+    //case "verb mu,bu,nu":
+    //  dictonaryForm.push(
+    //    stem.substring(-1, 1) + "む", 
+    //    stem.substring(-1, 1) + "ぶ", 
+    //    stem.substring(-1, 1) + "ぬ");
+    //  break;
+    //case "verb u,ru,tsu":
+    //  dictonaryForm.push(
+    //    stem.substring(-1, 1) + "う", 
+    //    stem.substring(-1, 1) + "る", 
+    //    stem.substring(-1, 1) + "つ");
+    //  break;
   }
-
-  return dictonaryForm
+ 
+  return dictonaryForm;
 }
 
 const inflections = {
@@ -213,7 +239,7 @@ const inflections = {
   "ました" : ["polite past", "verb"],
   "ませんでした" : ["polite negative", "verb"],
   "て" : ["te-form", "verb"],
-  "なくて" : ["te-form negative", "verb"],
+  "なくて" : ["negative", "verb"],
   "られる" : ["potential/passive", "verb"], 
   "られ" : ["potential/passive", "verb"], 
   "られない" : ["potential/passive negative", "verb"],
@@ -225,30 +251,30 @@ const inflections = {
   "ろ" : ["imperative", "verb"],
   "な" : ["imperative negative", "verb"],
   "れば" : ["conditional ba-form", "verb"],
-  "なければ" : ["conditional ba-form negative", "verb"],
+  "なければ" : ["negative", "verb"],
   "たら" : ["conditional tara-form", "verb"],
-  "なかったら" : ["conditional tara-form negative", "verb"],
+  "なかったら" : ["negative", "verb"],
   ////// godan only/////
   // just have to try and lookup all possiable 2-3 endings after finding word ends with んだ
   // exceptions past:
   // する 	した
   // くる 	きた
   // 行く 行った
-  "した" : ["past", "verb"], 
-  "いた" : ["past", "verb"], 
-  "いだ" : ["past", "verb"], 
-  "んだ" : ["past", "verb"], 
-  "った" : ["past", "verb"], 
+  "した" : ["past", "verb su"], 
+  "いた" : ["past", "verb ku"], 
+  "いだ" : ["past", "verb gu"], 
+  "んだ" : ["past", "verb mu,bu,nu"], 
+  "った" : ["past", "verb u,ru,tsu"], 
   // teforms
   // exceptions past:
   // する 	して
   // くる 	きて
   // 行く 行って
-  "って" : ["te-form", "verb"], 
-  "いて" : ["te-form", "verb"], 
-  "して" : ["te-form", "verb"], 
-  "いで" : ["te-form", "verb"], 
-  "んで" : ["te-form", "verb"], 
+  "して" : ["te-form", "verb su"], 
+  "いて" : ["te-form", "verb ku"], 
+  "いで" : ["te-form", "verb gu"], 
+  "んで" : ["te-form", "verb mu,bu,nu"],
+  "って" : ["te-form", "verb u,ru,tsu"], 
   // can just redirect all endings of a stem? 持ち 持っ 持っ ending just to つ?
   // imperative form affermative just changes hiragana. what do?
   
@@ -302,32 +328,58 @@ openDb().then(() => {
           } else {
             // optimistic search failed word has a conjugation.
             const conjugationData = findConjugation(word);
+            
             if (conjugationData.length <= 0) { // couldnt find conjugation
               return wordData = null;
             }
             const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
-            let stem = conjugationData.stem
+            const stem = conjugationData.stem
+            let dictonaryForm = [];
 
             switch(wordClass) {
               case "verb":
-                const dictonaryForm = identifyVerb(wordClass, stem)
-                stem = dictonaryForm;
-                //stem += "る";
+                dictonaryForm = identifyVerb(wordClass, stem);
+                console.log(dictonaryForm);
+                break;
+              case "verb su":
+                dictonaryForm.push(stem.substring(-1, 1) + "す");
+                break;
+              case "verb ku":
+                dictonaryForm.push(stem.substring(-1, 1) + "く");
+                break;
+              case "verb gu":
+                dictonaryForm.push(stem.substring(-1, 1) + "ぐ");
+                break;
+              case "verb mu,bu,nu":
+                dictonaryForm.push(
+                  stem.substring(-1, 1) + "む", 
+                  stem.substring(-1, 1) + "ぶ", 
+                  stem.substring(-1, 1) + "ぬ");
+                break;
+              case "verb u,ru,tsu":
+                dictonaryForm.push(
+                  stem.substring(-1, 1) + "う", 
+                  stem.substring(-1, 1) + "る", 
+                  stem.substring(-1, 1) + "つ");
                 break;
               case "i-adj":
-                stem += "い";
+                dictonaryForm.push(stem += "い");
                 break;
               case "na-adj":
               case "noun":
             }
 
-            let result = await lookupInDb(stem, "kanjiIndex").catch((err) => { console.error(err) });
+            // finds first match covers edge cases like "mu,bu,nu" with same endings.
+            for (const dictform of dictonaryForm){
+              let result = await lookupInDb(dictform, "kanjiIndex").catch((err) => { console.error(err) });
 
-            if (result){
-              return wordData = result;
-            } else {
-              return wordData = null;
+              if (result){
+                return wordData = result;
+              } 
             }
+
+            // cant find conjugation.
+            return wordData = null;
           }
         } else {
           let result = await lookupInDb(word, "readingIndex");
