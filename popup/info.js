@@ -29,7 +29,7 @@ function invoke(action, version, params={}) {
     }).catch((error) => {
         console.error("Error fetching selectedDeck:", error);
     })
-};
+}
 
 // adds the note to anki deck. 
 async function makeNote(){
@@ -62,7 +62,7 @@ async function makeNote(){
         })
     }
 
-};
+}
 
 async function createNoteType() {
     return await invoke('createModel', 6, 
@@ -80,7 +80,7 @@ async function createNoteType() {
             ]
         }
     )
-};
+}
 
 async function addNote() {
     const fromStorage = await browser.storage.local.get();
@@ -129,22 +129,20 @@ async function addNote() {
     }
 
     
-};
+}
 
 // prevents sentences that does not include the word from being added.
 function getSentence(){
-    let sentence =  document.getElementById("sentence").value;
+    const word = document.getElementById("selected-text").textContent.split(",")[0];
+    const reading = document.getElementById("reading").textContent.split(",")[0];
+    let sentence = document.getElementById("sentence").value;
 
-    sentence = sentence.replace(/ /g, '<br>');
-
-    browser.storage.local.get("selectedText").then((result) => {
-    if (sentence.includes(result.selectedText) || sentence.length === 0) {
-            browser.storage.local.set({sentence: sentence});
-            document.getElementById("add-button").disabled = false; 
-        }
-        else document.getElementById("add-button").disabled = true; 
-    })
-};
+    if (sentence.includes(word) || sentence.includes(reading) || sentence.length === 0) {
+        sentence = sentence.replace(/ /g, '<br>');
+        browser.storage.local.set({sentence: sentence});
+        document.getElementById("add-button").disabled = false; 
+    } else document.getElementById("add-button").disabled = true; 
+}
 
 // gets decks from anki and saves chosen deck.
 invoke('deckNames', 6).then((decks) => {
@@ -200,7 +198,7 @@ invoke('deckNames', 6).then((decks) => {
 
         })
     }
-});
+})
 
 // listens to add button on popup window.
 window.onload = () => {
@@ -212,7 +210,7 @@ window.onload = () => {
 browser.storage.local.get("selectedText").then((result) => {
     // displays saved info about word.
     browser.runtime.sendMessage({ action: "getData", text: result.selectedText }).then(response => {
-        console.log("popup", response);
+        //console.log("popup", response);
         if (response) {
             const allMeanings = [];
             const allTags = [];
@@ -241,7 +239,6 @@ browser.storage.local.get("selectedText").then((result) => {
                 document.getElementById("reading").textContent = "";
                 document.getElementById("meaning").textContent = "";
                 document.getElementById("tag").textContent = "";
-                
             })
         }
 
@@ -515,5 +512,5 @@ const tagsDict = {
     "ksb":"Kansai-ben",
     "pn":"pronoun",
     "gikun":"gikun (meaning as reading) or jukujikun (special kanji reading)"
-  };
+};
   

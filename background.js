@@ -108,99 +108,173 @@ async function lookupInDb(word, index){
 
 }
 
-function identifyWord(word){
+function findConjugation(word){
   // works, needs refactoring...
   let inflection = [];
   let mutations = [];
-  let lastHit = word.length;
+  let lastMatch = word.length;
 
-  let result = []
+  let conjugationData = {
+    wordClass : "",
+    form: "",
+    stem: "",
+  };
+
+ // let result = []
 
   for (let i = word.length; i--;){
     inflection.unshift(word[i]); // pushes to front array to look up in dict
-    const value = adjFormNames[inflection.join("")]; // join to look up in dict
+    const inflectionInfo = inflections[inflection.join("")]; // join to look up in dict
 
-    if (value) {
-      console.log("found inflection:", value, "\non:", inflection);
-      lastHit = i; // save index of conjugation found
-      if (!result.includes(value[1])){
-        result.push(value[1])
-      }
-    } else if (i <= 0 && !value) {
-      if (mutations.includes(lastHit)){
-        result.push(inflection.join(""));
+    // if theres a inflection matching save info 
+    if (inflectionInfo) {
+      console.log("found inflection:", inflectionInfo, "\non:", inflection);
+      lastMatch = i; // save index of conjugation found
+      conjugationData.form += inflectionInfo[0] + " ";
+      conjugationData.wordClass = inflectionInfo[1];
+    } else if (i <= 0 && !inflectionInfo) {
+      if (mutations.includes(lastMatch)){
+        conjugationData.stem = inflection.join("");
         console.log("found stem:", inflection.join(""));
-        break;
       } else {
-        mutations.push(lastHit);
-        i = lastHit;
+        mutations.push(lastMatch);
+        i = lastMatch;
         inflection = [];
       }
     }
 
   }
 
+  console.log(conjugationData);
+
   // could not find conjugation
-  if (result.length == 0){
-    return [];
+  if (conjugationData.wordClass.length == 0){
+    return {};
   }
 
-  console.log(result)
-
-  return result;  // array [0: wordclass 1: stem]
+  return conjugationData;  
 
 }
 
-const formNames = {
-  "ない" : "negative",
-  "ます" : "polite",
-  "ません" : "polite negative",
-  "た" : ["past", "verb"], // multiple
+function identifyVerb(wordclass, stem){
+  let dictonaryForm = "";
+
+  const endHiragana = stem.slice(-1);
+  switch(endHiragana) {
+    case "わ":
+    case "い":
+      dictonaryForm = stem.substring(-1, 1) + "う"
+      break;
+    case "た":
+    case "ち":  
+      dictonaryForm = stem.substring(-1, 1) + "つ"
+      break;
+    case "ら":
+    case "り":
+      dictonaryForm = stem.substring(-1, 1) + "る"
+      break;
+    case "ば":
+    case "び":
+      dictonaryForm = stem.substring(-1, 1) + "ぶ"
+      break; 
+    case "ま":
+    case "み":
+      dictonaryForm = stem.substring(-1, 1) + "む"
+      break; 
+    case "か":
+    case "き":
+      dictonaryForm = stem.substring(-1, 1) + "く"
+      break; 
+    case "が":
+    case "ぎ":
+      dictonaryForm = stem.substring(-1, 1) + "ぐ"
+      break; 
+    case "さ":
+    case "し":
+      dictonaryForm = stem.substring(-1, 1) + "す"
+      break; 
+    case "な":
+    case "に":
+    dictonaryForm = stem.substring(-1, 1) + "ぬ"
+      break;
+
+  }
+
+  return dictonaryForm
+}
+
+const inflections = {
+  ////// ichidan /////
+  "ない" : ["negative", "verb"],
+  "ます" : ["polite", "verb"],
+  "ません" : ["polite negative", "verb"],
+  //"た" : ["past", "verb"], Works bad with godan
   "なかった" : ["past negative", "verb"],
-  "ました" : "polite past",
-  "ませんでした" : "polite negative",
-  "て" : "te-form",
-  "なくて" : "te-form negative",
-  //"れる" : "potential", // multiple
-  //"れない" : "potential negative",
-  //"ない1" : "passive",
-  //"ない2" : "passive negative",
-  //"ない3" : "causative",
-  //"ない4" : "causative negative",
-  "せられる" : "causative passive",
-  "せられない" : "causative passive negative",
-  //"ない5" : "negative",
-  "な" : "imperative negative",
-  "れば" : "conditional ba-form", // multiple
-  "なければ" : "conditional ba-form negative",
-  "たら" : "conditional tara-form",
-  "なかったら" : "conditional ba-form negative",
+  "ました" : ["polite past", "verb"],
+  "ませんでした" : ["polite negative", "verb"],
+  "て" : ["te-form", "verb"],
+  "なくて" : ["te-form negative", "verb"],
+  "られる" : ["potential/passive", "verb"], 
+  "られ" : ["potential/passive", "verb"], 
+  "られない" : ["potential/passive negative", "verb"],
+  "させる" : ["causative", "verb"],
+  "させれ" : ["causative", "verb"],
+  "させない" : ["causative negative", "verb"],
+  "させられる": ["causative-passive", "verb"],
+  "させらない": ["causative-passive negative", "verb"],
+  "ろ" : ["imperative", "verb"],
+  "な" : ["imperative negative", "verb"],
+  "れば" : ["conditional ba-form", "verb"],
+  "なければ" : ["conditional ba-form negative", "verb"],
+  "たら" : ["conditional tara-form", "verb"],
+  "なかったら" : ["conditional tara-form negative", "verb"],
+  ////// godan only/////
+  // just have to try and lookup all possiable 2-3 endings after finding word ends with んだ
+  // exceptions past:
+  // する 	した
+  // くる 	きた
+  // 行く 行った
+  "した" : ["past", "verb"], 
+  "いた" : ["past", "verb"], 
+  "いだ" : ["past", "verb"], 
+  "んだ" : ["past", "verb"], 
+  "った" : ["past", "verb"], 
+  // teforms
+  // exceptions past:
+  // する 	して
+  // くる 	きて
+  // 行く 行って
+  "って" : ["te-form", "verb"], 
+  "いて" : ["te-form", "verb"], 
+  "して" : ["te-form", "verb"], 
+  "いで" : ["te-form", "verb"], 
+  "んで" : ["te-form", "verb"], 
+  // can just redirect all endings of a stem? 持ち 持っ 持っ ending just to つ?
+  // imperative form affermative just changes hiragana. what do?
+  
+
 };
 
 const adjFormNames = {
-   // adjectives:
-   "さ" : ["objective-form", "i-adj"],
-   // i-adjectives: く -> い remove rest to find stem.
-   "く" : ["adverbial", "i-adj"],
-   "くない" : ["negative", "i-adj"],
-   "かった" : ["past", "i-adj"],
-   "くなかった" : ["past negative", "i-adj"],
-   "くて" : ["te-form", "i-adj"],
-   "くなくて" : ["te-form negative", "i-adj"],
- 
-   // verbs can also have:
-   "ければ" : ["provisional-form", "i-adj"],
-   "くなければ" : ["provisional-form negative", "i-adj"],
-   "かったら" : ["conditional", "i-adj"],
-   "くなかったら" : ["conditional negative", "i-adj"],
-   "くなきゃ" : ["conditional negative (colloquial)", "i-adj"],
-   //
- 
-   "に" : ["adverbial", "na-adj"],
-   "じゃない" : ["negative", "na-adj"],
-   "だった" : ["past", "na-adj"],
-   "じゃなかった" : ["negative past", "na-adj"]
-}
+  // i-adjectives: く -> い remove rest to find stem.
+  "さ" : ["objective-form", "i-adj"],
+  "く" : ["adverbial", "i-adj"],
+  "くない" : ["negative", "i-adj"],
+  "かった" : ["past", "i-adj"],
+  "くなかった" : ["past negative", "i-adj"],
+  "くて" : ["te-form", "i-adj"],
+  "くなくて" : ["te-form negative", "i-adj"],
+  "ければ" : ["provisional-form", "i-adj"],
+  "くなければ" : ["provisional-form negative", "i-adj"],
+  "かったら" : ["conditional", "i-adj"],
+  "くなかったら" : ["conditional negative", "i-adj"],
+  "くなきゃ" : ["conditional negative (colloquial)", "i-adj"],
+  // na-adjectives/nouns
+  "に" : ["adverbial", "na-adj"],
+  "じゃない" : ["negative", "na-adj"],
+  "だった" : ["past", "na-adj"],
+  "じゃなかった" : ["negative past", "na-adj"]
+};
 
 // refactor lookup should happen in background script.
 openDb().then(() => {
@@ -226,18 +300,23 @@ openDb().then(() => {
           if (result){
             return wordData = result;
           } else {
-
             // optimistic search failed word has a conjugation.
-            const conjugationData = identifyWord(word);
+            const conjugationData = findConjugation(word);
             if (conjugationData.length <= 0) { // couldnt find conjugation
               return wordData = null;
             }
-            const wordClass = conjugationData[0]; // i-adj/na-adj/ichidan/godan
-            let stem = conjugationData[1]
+            const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
+            let stem = conjugationData.stem
 
             switch(wordClass) {
+              case "verb":
+                const dictonaryForm = identifyVerb(wordClass, stem)
+                stem = dictonaryForm;
+                //stem += "る";
+                break;
               case "i-adj":
                 stem += "い";
+                break;
               case "na-adj":
               case "noun":
             }
@@ -245,9 +324,9 @@ openDb().then(() => {
             let result = await lookupInDb(stem, "kanjiIndex").catch((err) => { console.error(err) });
 
             if (result){
-              wordData = result;
+              return wordData = result;
             } else {
-              wordData = null;
+              return wordData = null;
             }
           }
         } else {
@@ -262,7 +341,7 @@ openDb().then(() => {
 
 
       } else if (message.action === "getData"){
-        console.log("getting data:", wordData)
+        //console.log("getting data:", wordData)
         return wordData;
       }        
 
