@@ -13,7 +13,7 @@ document.addEventListener("mouseup", () => {
 
     let containsJP = japaneseRE.test(selection);
     //selection.length <= 6 &&
-    if (selection.length <= 6 && containsJP){
+    if (containsJP){
         let currentLocation = window.location.href;
         browser.runtime.sendMessage({
             action: "saveSelection",
