@@ -108,59 +108,64 @@ async function lookupInDb(word, index){
 
 }
 
-// conjugations array is empty if non are found. 
-// returns map wordclass: string, form:array, stem: string
+// returns map: wordclass: string, form: array, stem: string
 function findConjugation(word){
-  // works, needs refactoring...
-  let inflection = [];
-  let mutations = [];
-  let lastMatch = word.length;
-
   let conjugationData = {
     wordClass : "",
-    form: [],
+    form: "",
     stem: "",
   };
-  
+
+  // check for conjugations that cant have more conjugations. only 1 letter.
+  const endInflectionInfo = endInflection[word.substring(word.length - 1)]; 
+
+  if (endInflectionInfo) {
+    console.log("found inflection:", endInflectionInfo);        
+    conjugationData.form.push(endInflectionInfo[0]);
+    conjugationData.wordClass = endInflectionInfo[1];
+    conjugationData.stem = word;
+    return conjugationData;
+  } 
+
+  let inflection = []; // keeps track of current letter in word.
+  let lastAttempt = []; // stores lastMatch for comparing at the end of loop.
+  let lastMatch = []; // conjugations found (pushed at the end of the word)
+
   for (let i = word.length; i--;){
-    inflection.unshift(word[i]); // pushes to front array to look up in dict
-    if (i == word.length - 1){ // check for conjugations that cant have more conjugations. only 1 letter.
-      const inflectionInfo = endInflection[inflection.join("")]; 
-
-      // if theres a inflection matching save info 
-      if (inflectionInfo) {
-        console.log("found inflection:", inflectionInfo, "\non:", inflection);        
-        conjugationData.form.push(inflectionInfo[0]);
-        conjugationData.wordClass = inflectionInfo[1];
-        conjugationData.stem = word; //.substring(0, word.length - 1);
-        return conjugationData;
-      } 
-    }
-
-    const inflectionInfo = inflections[inflection.join("")]; // join to look up in dict
+    inflection.unshift(word[i]);
+    let inflectionInfo = inflections[inflection.join("")];
 
     if (inflectionInfo) {
-      console.log("found inflection:", inflectionInfo, "\non:", inflection);
-      lastMatch = i; // save index of conjugation found
-      if (!conjugationData.form.includes(inflectionInfo[0])) {
-        conjugationData.form.push(inflectionInfo[0]);
-      }
-      conjugationData.wordClass = inflectionInfo[1];
-    } else if (i <= 0 && !inflectionInfo) {
-      if (mutations.includes(lastMatch)){
-        conjugationData.stem = inflection.join("");
-        console.log("found stem:", inflection.join(""));
+      lastMatch.push(inflection.join("")); // save current inflection, can be longer, so pushed on end of word.
+    } 
+
+    if (i === 0) {
+      if (lastAttempt[lastAttempt.length - 1] == lastMatch[lastMatch.length - 1]){ // finds that match is already attempted, breaks to avoid loops.
+        conjugationData.stem = inflection.join(""); // rest of string has no conjugations found and have to be stem.
+        console.log("forms deteted:", conjugationData.form);
+        return conjugationData;
       } else {
-        mutations.push(lastMatch);
-        i = lastMatch;
-        inflection = [];
+        const index = word.indexOf(lastMatch[lastMatch.length - 1]);
+        const length = lastMatch[lastMatch.length - 1].length;
+
+        inflectionInfo = inflections[word.substring(index, index + length)]; // find substring of inflection in word
+
+        // if ta is detected after past is already found is stem! HOW TO FIX?
+        if (!conjugationData.form.includes(inflectionInfo[0])){
+          conjugationData.form = inflectionInfo[0]; //  add form to array of current forms found
+          conjugationData.wordClass = inflectionInfo[1]; // update wordclass to current wordclass.
+        }
+
+        console.log("found inflection:", inflectionInfo, "\non:", word.substring(index, index + length));
+
+        lastAttempt.push(lastMatch[lastMatch.length - 1]); // update lastAttempt to avoid infinte loop.
+        i = index; // go back to last known index where a inflection was found
+        inflection = []; // clear inflection for finding new potential inflections.
       }
     }
 
   }
 
-  console.log(conjugationData);
-  console.log("forms found", conjugationData.form);
 
   return conjugationData;  
 }
@@ -189,7 +194,11 @@ function identifyVerb(wordclass, form, stem){
     case "ば":
     case "び":
     case "べ":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぶ");
+      if (wordclass.includes("potential")){ // check
+        dictonaryForm.push(stem.substring(-1, 1) + "ぶ");
+      } else {
+        dictonaryForm.push(stem + "る");
+      }
       break;
     case "ま":
     case "み":
@@ -235,7 +244,6 @@ const endInflection = {
   "べ" : ["imperative", "verb"], 
   "ね" : ["imperative", "verb"], 
   "え" : ["imperative", "verb"], 
-  "て" : ["imperative", "verb"], 
   "れ" : ["imperative", "verb"], 
   "さ" : ["objective-form", "i-adj"], 
   "く" : ["adverbial", "i-adj"], 
@@ -248,61 +256,52 @@ const inflections = {
   "ます" : ["polite", "verb"],
   "ません" : ["polite negative", "verb"],
   "た" : ["past", "verb"],
-  "なかった" : ["past", "verb"],
+  "なかった" : ["past negative", "verb"],
   "ました" : ["polite past", "verb"],
-  "ませんでした" : ["polite", "verb"],
+  "ませんでした" : ["polite past", "verb"],
   "れば" : ["ba-form", "verb"],
   "なければ" : ["ba-form negative", "verb"],
   "たら" : ["tara-form", "verb"],
   "なかったら" : ["tara-form negative", "verb"],
-  "なくて" : ["negative", "verb"],
+  "なくて" : [" te-form negative", "verb"],
   ////// ichidan  only ///// 
-  "て" : ["te-form", "verb ichidan"],
+  "て" : ["te-form", "verb ichidan"], /// te issue
   "られる" : ["potential/passive", "verb ichidan"], 
   "られ" : ["potential/passive", "verb ichidan"], 
   "させる" : ["causative", "verb ichidan"],
-  "させれ" : ["causative", "verb ichidan"],
   "させ" : ["causative", "verb ichidan"],
   "させられる": ["causative-passive", "verb ichidan"],
-  "させら": ["causative-passive", "verb ichidan"],
+  "させられ": ["causative-passive", "verb ichidan"],
   ////// godan only /////
-  "した" : ["past", "verb su"], 
-  "いた" : ["past", "verb ku"], 
-  "いだ" : ["past", "verb gu"], 
-  "んだ" : ["past", "verb mu,bu,nu"], 
+  //"した" : ["past", "verb su"], 
+  //"いた" : ["past", "verb ku"], 
+  //"いだ" : ["past", "verb gu"], 
+  //"んだ" : ["past", "verb mu,bu,nu"], 
   "った" : ["past", "verb u,ru,tsu"], 
-
-  "して" : ["te-form", "verb su"], 
-  "いて" : ["te-form", "verb ku"], 
-  "いで" : ["te-form", "verb gu"], 
-  "んで" : ["te-form", "verb mu,bu,nu"],
-  "って" : ["te-form", "verb u,ru,tsu"], 
-  "れる" : ["potential", "verb"], 
-
-  "せない" : ["potential", "verb su"], 
-  "けない" : ["potential", "verb ku"], 
-  "げない" : ["potential", "verb gu"], 
-  "めない" : ["potential", "verb mu"], 
-  "べない" : ["potential", "verb bu"], 
-  "ねない" : ["potential", "verb nu"], 
-  "えない" : ["potential", "verb u"], 
-  "てない" : ["potential", "verb tsu"],
-  "れない" : ["potential", "verb ru"], 
-
-  //"られない" : ["potential negative", "verb ichidan"], // can be ru verb, but needs same ending.
-
-  "れる" : ["passive", "verb"], 
-  "れない" : ["passive", "verb"], 
-  "せる" : ["causative", "verb"], 
-
-  //"せない" : ["causative negative", "verb"], // ? させない
-
-  "せられる" : ["causative passive", "verb"], 
-  "せられ" : ["causative passive", "verb"], 
-  "せられない" : ["causative passive", "verb"], 
-
-  //"買え" : ["imperative", "verb"], // check ending can add to switch statement?
-
+  //"して" : ["te-form", "verb su"], 
+  //"いて" : ["te-form", "verb ku"], 
+  //"いで" : ["te-form", "verb gu"], 
+  //"んで" : ["te-form", "verb mu,bu,nu"],
+  //"って" : ["te-form", "verb u,ru,tsu"], 
+  //"れる" : ["potential", "verb"], 
+  //"せない" : ["potential", "verb su"], 
+  //"けない" : ["potential", "verb ku"], 
+  //"げない" : ["potential", "verb gu"], 
+  //"めない" : ["potential", "verb mu,bu,nu"], 
+  //"べない" : ["potential", "verb mu,bu,nu"], 
+  //"ねない" : ["potential", "verb mu,bu,nu"], 
+  //"えない" : ["potential", "verb u,ru,tsu"], 
+  //"てない" : ["potential", "verb u,ru,tsu"],
+  //"れない" : ["potential", "verb u,ru,tsu"], 
+  //"られない" : ["potential", "verb ichidan"], // can be ru verb, but needs same ending.
+  //"れる" : ["passive", "verb"], 
+  //"れない" : ["passive", "verb"], 
+  //"せる" : ["causative", "verb"], 
+  //"せない" : ["causative negative", "verb"], // させな ?
+  //"せられる" : ["causative passive", "verb"], 
+  //"せられ" : ["causative passive", "verb"], 
+  //"せられない" : ["causative passive", "verb"], 
+  //"て" : ["imperative", "verb"], // clashes with te form. needs additional check. /// ichidan te form and tsu verb clash
   ////// i-adjective only /////  
   "くない" : ["negative", "i-adj"],
   "かった" : ["past", "i-adj"],
@@ -354,8 +353,6 @@ openDb().then(() => {
             switch(wordClass) {
               case "verb":
                 dictonaryForm = identifyVerb(wordClass, conjugationData.form, stem);
-                console.log("stem:", stem);
-                console.log(dictonaryForm);
                 break;
               case "verb ichidan":
                 if(conjugationData.form.includes("imperative")){
