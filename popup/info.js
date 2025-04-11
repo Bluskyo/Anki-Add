@@ -40,7 +40,7 @@ async function makeNote(){
 
     const models = await invoke('modelNames', 6);
 
-    if (!models.includes("AnkiAdd")){
+    if (!models.includes("AnkiAdd TEST")){ //
         console.log("missing Anki note type! creating...")
         createNoteType();
     }
@@ -67,22 +67,22 @@ async function makeNote(){
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
-            "modelName": "AnkiAdd",
-            "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From"],
+            "modelName": "AnkiAdd TEST", // 
+            "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
             "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; padding-bottom: 10px } .medium { font-size:30px } .small { font-size: 18px;}",
             "isCloze": false,
             "cardTemplates": [
                 {
                     "Name": "Japanese",
                     "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{hint:Sentence}}</div>",
-                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script>'
+                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script>{{Pronunciation}}'
                 }
             ]
         }
     )
 }
 
-async function addNote() {
+async function addNote() { // use getdata? instead?
     const fromStorage = await browser.storage.local.get();
 
     const word = document.getElementById("selected-text").textContent.split(",")[0]; // Temperary: should be able to choose this.
@@ -92,8 +92,8 @@ async function addNote() {
 
     // anki divides tags by space, 
     const rawTags = document.getElementById("tag").textContent;
-    const ankiFormat = rawTags.replace(/ /g, "_");
-    const ankiTags = ankiFormat.replace(/,/g, " ");
+    const formating = rawTags.split(", ").join(",").replace(/ /g, "_");
+    const ankiTags = formating.split(",").join(" ");
 
     // for highlighting word in anki
     const sentence = fromStorage.sentence; 
@@ -105,7 +105,7 @@ async function addNote() {
         return await invoke('addNote', 6, {
             "note": {
                 "deckName": fromStorage.selectedDeck, 
-                "modelName": "AnkiAdd", 
+                "modelName": "AnkiAdd TEST", //
                 "fields": {
                     "Word": word, 
                     "Sentence": formattedSentence, 
@@ -123,11 +123,19 @@ async function addNote() {
                     "deckName": "Default", // fromStorage.selectedDeck 
                     "checkChildren": false,
                     "checkAllModels": false }
-                }
+                },
+                "audio": [{
+                    "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
+                    "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                    "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                    "fields": [
+                        "Pronunciation"
+                    ]
+                }],
             }
         })
     } else {
-        return null;
+        console.log("COULDNT CREATE CARD!");
     }
 
     
@@ -138,7 +146,7 @@ function getSentence(){
     const word = document.getElementById("selected-text").textContent.split(",")[0];
     const reading = document.getElementById("reading").textContent.split(",")[0];
     let sentence = document.getElementById("sentence").value;
-    
+
     if (sentence.includes(word) || sentence.includes(reading) || sentence.length === 0) {
         sentence = sentence.replace(/ /g, '<br>');
         browser.storage.local.set({sentence: sentence});
@@ -212,34 +220,29 @@ window.onload = () => {
 browser.storage.local.get("selectedText").then((result) => {
     // displays saved info about word.
     browser.runtime.sendMessage({ action: "getData", text: result.selectedText }).then(response => {
-        //console.log("popup", response);
         if (response) {
-            const allMeanings = [];
-            const allTags = [];
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response.kanji.join(", ") + `</p>`;
+            document.getElementById("reading").innerHTML = `<p class=readings>` + response.kana.join(", ") + `</p>`;
 
-            for (const definition of response.sense) {
-                const strMeaning  = definition.gloss.map(meaning => meaning.text).join("; ");
-                allMeanings.push(strMeaning);
+            let meaning = `<ol>`;
+            for (let definition of response.sense){
+                if (definition.misc.length > 0) {
+                    meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
+                    definition.misc.map(misc => tagsDict[misc]).join(", ") + '</p>' +
+                    '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
+                } else {
+                    meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") +
+                     '</p>' + '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
+                }
             }
-
-            for (const definition of response.sense) {
-                for (const tag of definition.partOfSpeech){
-                    const value = tagsDict[tag];
-                    allTags.push(value);
-                };
-            }
-
-            document.getElementById("selected-text").textContent = response.kanji.join(", ");
-            document.getElementById("reading").textContent = response.kana.join(", ");
-            document.getElementById("meaning").innerHTML = allMeanings.join("<br>");
-            document.getElementById("tag").textContent = allTags.join(", ")
+            meaning += `</ol>`;
+            document.getElementById("description").innerHTML = meaning;
         } else {
             browser.storage.local.get("selectedText").then((result) => {
 
                 document.getElementById("selected-text").textContent = `could not find: "${result.selectedText}"`;
                 document.getElementById("reading").textContent = "";
-                document.getElementById("meaning").textContent = "";
-                document.getElementById("tag").textContent = "";
+                document.getElementById("description").textContent = "";
             })
         }
 
@@ -314,7 +317,7 @@ const tagsDict = {
     "euph":"euphemistic",
     "embryo":"embryology",
     "v2y-k":"Nidan verb (upper class) with 'yu' ending (archaic)",
-    "uk":"word usually written using kana alone",
+    "uk":"usually kana",
     "rare":"rare term",
     "v2a-s":"Nidan verb with 'u' ending (archaic)",
     "hanaf":"hanafuda",
@@ -373,7 +376,7 @@ const tagsDict = {
     "osb":"Osaka-ben",
     "adj-shiku":"'shiku' adjective (archaic)",
     "Christn":"Christianity",
-    "hum":"humble (kenjougo) language",
+    "hum":"humble language",
     "obs":"obsolete term",
     "relig":"religion",
     "iK":"word containing irregular kanji usage",

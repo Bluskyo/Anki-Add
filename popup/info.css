@@ -48,7 +48,8 @@ p {
 
 .word-info {
   max-width: fit-content;
-  margin-inline: auto;
+  position: center;
+
 }
 
 .example-sentence {
@@ -65,4 +66,22 @@ p {
 
 .dropdown {
   width: 200px;
+}
+
+.tags {
+  margin: 3px;
+}
+
+.definitions {
+  margin-bottom: 10px;
+}
+
+.kanji {
+  font-size: 35px;
+  margin: 5px 1px 0px 40px;
+}
+
+.readings {
+  font-size: 15px;
+  margin: 5px 1px 0px 40px;
 }
