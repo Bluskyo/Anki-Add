@@ -158,10 +158,10 @@ function getSentence(){
     if (useReading){ // for highlighting word in anki
         word = reading; // uses reading instead of kanji.
     } 
-    
+
     let sentence = document.getElementById("sentence").value;
 
-    if (sentence.includes(word)) {
+    if (sentence.includes(word) || sentence.length == 0) {
         sentence = sentence.replace(/ /g, '<br>');
         browser.runtime.sendMessage({
             action: "saveSentence",
