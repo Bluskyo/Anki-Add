@@ -10,10 +10,10 @@ document.addEventListener("mouseup", () => {
         const input = currentElement.value;
         selection = input.substring(selectionStart, selectionEnd);
     }
-
+    
     let containsJP = japaneseRE.test(selection);
-    //selection.length <= 6 &&
-    if (containsJP){
+
+    if (selection.length <= 20 && containsJP){
         let currentLocation = window.location.href;
         browser.runtime.sendMessage({
             action: "saveSelection",

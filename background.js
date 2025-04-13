@@ -95,7 +95,6 @@ async function lookupInDb(word, index){
   
     request.onsuccess = (evt) => {
       if(request.result) {
-        browser.storage.local.set({ jmdictSeq: request.result.id });
         console.log("Word data:", request.result)
         resolve(request.result);
       } else {
@@ -322,23 +321,24 @@ const inflections = {
 // refactor lookup should happen in background script.
 openDb().then(() => {
   let wordData;
+  const savedInfo = new Map();
 
   browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    if (message.action === "saveSelection") {
-      browser.storage.local.set({
-          selectedText: message.text,
-          sentence: "", // clears sentence from previous sentence.
-          savedURL: message.url
-      });
-      
+
+    switch(message.action){
+      case "saveSelection":
+        savedInfo.set("selectedText", message.text);
+        savedInfo.set("sentence", ""); // clears sentence from previous sentence.
+        savedInfo.set("savedURL", message.url);
+  
         const word = message.text;
         const kanjiRe = /[一-龯]/;
         const containsKanji = kanjiRe.test(word);
-
+  
         // optimistic search:
         if (containsKanji){
           let result = await lookupInDb(word, "kanjiIndex").catch((err) => { console.error(err) });
-
+  
           if (result){
             return wordData = result;
           } else {
@@ -347,7 +347,7 @@ openDb().then(() => {
             const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
             const stem = conjugationData.stem;
             let dictonaryForm = [];
-
+  
             // in some conjugations verbs can immediately be identified as godan
             // if conjugation is more ambiguous runs the identifyVerb func. 
             switch(wordClass) {
@@ -379,35 +379,41 @@ openDb().then(() => {
                 break;
               case "na-adj":
               case "noun":
-
+  
             }
-
+  
             // finds first match covers edge cases like "mu,bu,nu" with same endings.
             for (const dictform of dictonaryForm){
               let result = await lookupInDb(dictform, "kanjiIndex").catch((err) => { console.error(err) });
-
+  
               if (result){
                 return wordData = result;
               } 
             }
-
+  
             // cant find conjugation.
             return wordData = null;
           }
         } else {
           let result = await lookupInDb(word, "readingIndex");
-
           if (result){
             return wordData = result;
           } else {
             return wordData = null;
-          }
-
-        }
-
-      } else if (message.action === "getData"){
+          }}
+      case "getData":
         return wordData;
-      }        
+      case "getSavedInfo":
+        return savedInfo;
+      case "getAllData":
+        return [wordData, savedInfo];
+      case "saveSentence":
+        savedInfo.set("sentence", message.text);
+        return true;
+      case "saveDeck":
+        savedInfo.set("savedDeck", message.text);
+        return true;
+    }
 
     return true; // keeps the response channel open for async func
     

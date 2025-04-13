@@ -10,19 +10,23 @@
         <div class="word-info"> 
             <p id="reading"></p>
             <p id="selected-text"></p>
+            <p id="additional-info"></p>
             <p id="description"></p>
         </div>
 
         <hr class="line">
 
         <div class="anki-meny">
-            <select id="anki-decks"></select> <p id="status-message"></p>
-            
+            <select id="anki-decks"></select> 
+            <input type="checkbox" id="kana-reading" onchange={}/>
+            <label for="kana-reading">use Kana reading</label>
+            <p id="status-message"></p>
             <input type="text" 
             class="example-sentence" 
             id="sentence" 
             placeholder="Example sentence (例文)" 
-            autoFocus/> <br>
+            autoFocus/>
+            <br>
         </div>
 
         <button id="add-button">ADD</button>

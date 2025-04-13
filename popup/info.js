@@ -31,13 +31,8 @@ function invoke(action, version, params={}) {
     })
 }
 
-// adds the note to anki deck. 
+// adds the note to anki deck.  ///
 async function makeNote(){
-
-    //const test = fromStorage.pos.replaceAll(" ", "_")
-    //const test2 = test.split("_ ").join()
-    //const test3 = test2.replaceAll(",_", " ")
-
     const models = await invoke('modelNames', 6);
 
     if (!models.includes("AnkiAdd TEST")){ //
@@ -48,26 +43,25 @@ async function makeNote(){
     const addingNote = await addNote();
 
     if (addingNote !== null) {
-
-        browser.storage.local.get([
-            "selectedText", 
-            "selectedDeck"]).then((result) => {
-            document.getElementById("status-message").textContent = `Added ${result.selectedText} to ${result.selectedDeck}.😊`;
-        })
+        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
+            if (response) {
+                document.getElementById("status-message").textContent = `Added "${response.get("selectedText")}" to "${response.get("savedDeck")}".😊`;
+            }
+        }).catch(error => console.error("Error creating card!:", error));
     } else {
-        browser.storage.local.get([
-            "selectedText", 
-            "selectedDeck"]).then((result) => {
-            document.getElementById("status-message").textContent = `Could not add ${result.selectedText} to ${result.selectedDeck}.😔`;
-        })
+        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
+            if (response) {
+                document.getElementById("status-message").textContent = `Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
+            }
+        });
     }
 
 }
-
+///
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
-            "modelName": "AnkiAdd TEST", // 
+            "modelName": "AnkiAdd TEST",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
             "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; padding-bottom: 10px } .medium { font-size:30px } .small { font-size: 18px;}",
             "isCloze": false,
@@ -82,63 +76,74 @@ async function createNoteType() {
     )
 }
 
-async function addNote() { // use getdata? instead?
-    const fromStorage = await browser.storage.local.get();
+// needs error handling.
+async function addNote() {
+    browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
+        if (response) {
+            const wordData = response[0];
 
-    const word = document.getElementById("selected-text").textContent.split(",")[0]; // Temperary: should be able to choose this.
-    const furigana = document.getElementById("reading").textContent.split(",")[0];
-    const meaning = document.getElementById("meaning").textContent;
-    const savedURL = fromStorage.savedURL;
+            const word = wordData.kanji[0];
+            const furigana = wordData.kana[0];
+            const meaning = document.getElementById("description").innerHTML;    
 
-    // anki divides tags by space, 
-    const rawTags = document.getElementById("tag").textContent;
-    const formating = rawTags.split(", ").join(",").replace(/ /g, "_");
-    const ankiTags = formating.split(",").join(" ");
+            let allTags = [];
+            for (const definition of wordData.sense) {
+                for (const tag of definition.partOfSpeech){
+                    allTags.push(tagsDict[tag]);
+                }                 
+            } 
+            const ankiFormat = allTags.join(",").replace(/ /g, "_");
+            const ankiTags = ankiFormat.replace(/,/g, " ");        
 
-    // for highlighting word in anki
-    const sentence = fromStorage.sentence; 
-    const regex = new RegExp(word, "g"); // globalflag to match every occurence
-    const formattedSentence = sentence.replace(regex, `<mark>${word}</mark>`);
+            const savedInfo = response[1];
+            const savedDeck = savedInfo.get("savedDeck")
+            // for highlighting word in anki ////// needs additonal logic for use kana checkmark. /////
+            const sentence = savedInfo.get("sentence"); 
+            const regex = new RegExp(word, "g"); // globalflag to match every occurence
+            const formattedSentence = sentence.replace(regex, `<mark>${word}</mark>`);
+            const savedUrl = savedInfo.get("savedURL");
 
-    // adds all info to anki note.
-    if (meaning.length > 0){
-        return await invoke('addNote', 6, {
-            "note": {
-                "deckName": fromStorage.selectedDeck, 
-                "modelName": "AnkiAdd TEST", //
-                "fields": {
-                    "Word": word, 
-                    "Sentence": formattedSentence, 
-                    "JMdictSeq": fromStorage.jmdictSeq, 
-                    "Furigana": furigana, 
-                    "Meaning": meaning,
-                    "From": savedURL
-                },
-                "tags": ["AnkiAdd", ankiTags],
-                "options": {
-                    "allowDuplicate": false,
-                    "duplicateScope": "deck",
-                    "duplicateScopeOptions": 
-                    {
-                    "deckName": "Default", // fromStorage.selectedDeck 
-                    "checkChildren": false,
-                    "checkAllModels": false }
-                },
-                "audio": [{
-                    "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
-                    "filename": `ankiAdd_${word}_${furigana}.mp3`,
-                    "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-                    "fields": [
-                        "Pronunciation"
-                    ]
-                }],
+            // adds all info to anki note.
+            if (meaning.length > 0){
+                return invoke('addNote', 6, {
+                    "note": {
+                        "deckName": savedDeck, 
+                        "modelName": "AnkiAdd TEST", //
+                        "fields": {
+                            "Word": word, 
+                            "Sentence": formattedSentence,
+                            "JMdictSeq": response.id, 
+                            "Furigana": furigana, 
+                            "Meaning": meaning,
+                            "From": savedUrl 
+                        },
+                        "tags": ["AnkiAdd", ankiTags],
+                        "options": {
+                            "allowDuplicate": false,
+                            "duplicateScope": "deck",
+                            "duplicateScopeOptions": 
+                            {
+                            "deckName": "Default", // savedDeck
+                            "checkChildren": false,
+                            "checkAllModels": false }
+                        },
+                        "audio": [{
+                            "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
+                            "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                            "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                            "fields": [
+                                "Pronunciation"
+                            ]
+                        }],
+                    }
+                })
+            } else {
+                console.log("COULDNT CREATE CARD!"); // catch instead.
             }
-        })
-    } else {
-        console.log("COULDNT CREATE CARD!");
-    }
 
-    
+        }
+    }).catch(error => console.error("Error retrieving data:", error));
+
 }
 
 // prevents sentences that does not include the word from being added.
@@ -149,66 +154,71 @@ function getSentence(){
 
     if (sentence.includes(word) || sentence.includes(reading) || sentence.length === 0) {
         sentence = sentence.replace(/ /g, '<br>');
-        browser.storage.local.set({sentence: sentence});
+        browser.runtime.sendMessage({
+            action: "saveSentence",
+            text: sentence
+        }).catch(error => console.error("Error saving message:", error));
+
         document.getElementById("add-button").disabled = false; 
     } else document.getElementById("add-button").disabled = true; 
 }
 
 // gets decks from anki and saves chosen deck.
 invoke('deckNames', 6).then((decks) => {
-    // gets the decks and display them in the popup window.
-    const ankiDecksDropdDown = document.getElementById("anki-decks");
+        // gets the decks and display them in the popup window.
+        const ankiDecksDropdDown = document.getElementById("anki-decks");
 
-    if (decks == undefined) {
+        if (decks == undefined) {
+            let option = document.createElement("option");
+            let optionText = document.createTextNode("Couldn't connect to Anki!");
+            option.appendChild(optionText);
 
-        let option = document.createElement("option");
-        let optionText = document.createTextNode("Couldn't connect to Anki!");
-        option.appendChild(optionText);
+            ankiDecksDropdDown.appendChild(option);
+        } else { 
+            browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
+                const selectedDeck = response.get("savedDeck");
 
-        ankiDecksDropdDown.appendChild(option);
-    } else {
-        browser.storage.local.get("selectedDeck").then((result) => {  
-            const selectedDeck = result.selectedDeck;
-
-            // if other decks are present skips the default deck.
-            if(decks.length > 1){
-                decks.shift();   
-                if (!selectedDeck) {
-                    browser.storage.local.set({ selectedDeck: decks[0]});
+                // if other decks are present skips the default deck.
+                if(decks.length > 1){
+                    decks.shift();   
+                    if (!selectedDeck) {
+                        browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
+                    }
                 }
-            }
-
-            // avoids undefined first deck and gets selected deck.
-            if (selectedDeck) {
-                let option = document.createElement("option");
-                option.setAttribute("value", selectedDeck);
-                let optionText = document.createTextNode(selectedDeck);
-                option.appendChild(optionText);
-        
-                ankiDecksDropdDown.appendChild(option);
-            }
-            
-            // adds rest of available decks to dropdown menu.
-            for (let deck of decks) {  
-                if (deck !== selectedDeck){
+    
+                // avoids undefined first deck and gets selected deck.
+                if (selectedDeck) {
                     let option = document.createElement("option");
-                    option.setAttribute("value", deck);
-                    let optionText = document.createTextNode(deck);
+                    option.setAttribute("value", selectedDeck);
+                    let optionText = document.createTextNode(selectedDeck);
                     option.appendChild(optionText);
-            
+    
                     ankiDecksDropdDown.appendChild(option);
                 }
-            }
+                
+                // adds rest of available decks to dropdown menu.
+                for (let deck of decks) {  
+                    if (deck !== selectedDeck){
+                        let option = document.createElement("option");
+                        option.setAttribute("value", deck);
+                        let optionText = document.createTextNode(deck);
+                        option.appendChild(optionText);
+                
+                        ankiDecksDropdDown.appendChild(option);
+                    }
+                }
+    
+                // saves picked deck. 
+                document.getElementById("anki-decks").addEventListener("change", (e) => {
+                    const selectedOption = e.target.options[e.target.selectedIndex];
+                    browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
+                })
 
-            // saves picked deck. 
-            document.getElementById("anki-decks").addEventListener("change", (e) => {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                browser.storage.local.set({ selectedDeck: selectedOption.text});
-            })
+            });
 
-        })
+        }
     }
-})
+)
 
 // listens to add button on popup window.
 window.onload = () => {
@@ -217,37 +227,47 @@ window.onload = () => {
 }
 
 // looksup selected word and displays info in popup. 
-browser.storage.local.get("selectedText").then((result) => {
-    // displays saved info about word.
-    browser.runtime.sendMessage({ action: "getData", text: result.selectedText }).then(response => {
-        if (response) {
-            document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response.kanji.join(", ") + `</p>`;
-            document.getElementById("reading").innerHTML = `<p class=readings>` + response.kana.join(", ") + `</p>`;
+// displays saved info about word.
+browser.runtime.sendMessage({ action: "getData"}).then(response => {
+    if (response) {
+        document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response.kanji.join(", ") + `</p>`;
+        document.getElementById("reading").innerHTML = `<p class=readings>` + response.kana.join(", ") + `</p>`;
 
-            let meaning = `<ol>`;
-            for (let definition of response.sense){
-                if (definition.misc.length > 0) {
-                    meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
-                    definition.misc.map(misc => tagsDict[misc]).join(", ") + '</p>' +
-                    '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
-                } else {
-                    meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") +
-                     '</p>' + '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
-                }
+        let meaning = `<ol>`;
+        for (let definition of response.sense){
+            if (definition.misc.length > 0) {
+                meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
+                definition.misc.map(misc => tagsDict[misc]).join(", ") + '</p>' +
+                '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
+            } else {
+                meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") +
+                '</p>' + '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
             }
-            meaning += `</ol>`;
-            document.getElementById("description").innerHTML = meaning;
-        } else {
-            browser.storage.local.get("selectedText").then((result) => {
+        }
+        meaning += `</ol>`;
+        document.getElementById("description").innerHTML = meaning;
 
-                document.getElementById("selected-text").textContent = `could not find: "${result.selectedText}"`;
-                document.getElementById("reading").textContent = "";
-                document.getElementById("description").textContent = "";
-            })
+        // shows common tag for common words.
+        const kanjis = response.kanjiCommon;
+        const readings = response.kanaCommon;
+        if (kanjis.includes(true) || readings.includes(true) ) {
+            document.getElementById("additional-info").innerHTML = `<b>` + "common" + `</b>`;
         }
 
-    }).catch(error => console.error("Error retrieving text:", error));
-})
+        // default behavoir checkmark for adding word in kana to anki if word is marked as usually kana.
+        const usuallyKana = response.sense[0].misc[0]; 
+        if (usuallyKana == "uk") {
+            document.getElementById("kana-reading").checked = true;
+        }
+    } else {
+        browser.runtime.sendMessage({ action: "getData"}).then(response => {
+            document.getElementById("selected-text").textContent = `could not find: "${response.selectedText}"`;
+            document.getElementById("reading").textContent = "";
+            document.getElementById("description").textContent = "";
+        })
+    }
+
+}).catch(error => console.error("Error retrieving text:", error));
 
 const tagsDict = { 
     "v5uru":"Godan verb - Uru old class verb (old form of Eru)",
@@ -340,7 +360,7 @@ const tagsDict = {
     "gardn":"gardening; horticulture",
     "adj-kari":"'kari' adjective (archaic)",
     "vr":"irregular ru verb; plain form ends with -ri",
-    "vs":"noun or participle which takes the aux. verb suru",
+    "vs":"Suru verb",
     "internet":"Internet",
     "vt":"transitive verb",
     "cards":"card games",
