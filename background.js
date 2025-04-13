@@ -324,7 +324,6 @@ openDb().then(() => {
   const savedInfo = new Map();
 
   browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-
     switch(message.action){
       case "saveSelection":
         savedInfo.set("selectedText", message.text);

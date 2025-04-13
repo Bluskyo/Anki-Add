@@ -61,15 +61,15 @@ async function makeNote(){
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
-            "modelName": "AnkiAdd TEST",
+            "modelName": "AnkiAdd TEST", ///
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {  font-size: 25px;  text-align: center;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  text-align: center;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .card a { text-decoration-color: #A1B2BA; }  .big { font-size: 50px; padding-bottom: 10px } .medium { font-size:30px } .small { font-size: 18px;}",
+            "css": ".card {  font-size: 25px;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .big { font-size: 50px; text-align: center; } .medium { font-size:30px; text-align: center; } .small { font-size: 18px; text-align: center;}",
             "isCloze": false,
             "cardTemplates": [
                 {
                     "Name": "Japanese",
                     "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{hint:Sentence}}</div>",
-                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a><br>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script>{{Pronunciation}}'
+                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script><center>{{Pronunciation}}</center>'
                 }
             ]
         }
@@ -81,11 +81,15 @@ async function addNote() {
     browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
         if (response) {
             const wordData = response[0];
-
-            const word = wordData.kanji[0];
+            let word = wordData.kanji[0];
             const furigana = wordData.kana[0];
-            const meaning = document.getElementById("description").innerHTML;    
+            const meaning = document.getElementById("description").innerHTML;  
+            const savedInfo = response[1];  
+            const savedUrl = savedInfo.get("savedURL");
+            const savedDeck = savedInfo.get("savedDeck")
 
+
+            // formatting for tags in anki
             let allTags = [];
             for (const definition of wordData.sense) {
                 for (const tag of definition.partOfSpeech){
@@ -93,16 +97,16 @@ async function addNote() {
                 }                 
             } 
             const ankiFormat = allTags.join(",").replace(/ /g, "_");
-            const ankiTags = ankiFormat.replace(/,/g, " ");        
+            const ankiTags = ankiFormat.replace(/,/g, " ");  
 
-            const savedInfo = response[1];
-            const savedDeck = savedInfo.get("savedDeck")
-            // for highlighting word in anki ////// needs additonal logic for use kana checkmark. /////
+            // marking word in example sentence logic:
             const sentence = savedInfo.get("sentence"); 
-            const regex = new RegExp(word, "g"); // globalflag to match every occurence
+            if (useReading){ // for highlighting word in anki
+                word = furigana; // uses reading instead of kanji.
+            } 
+            const regex = new RegExp(word, "g"); 
             const formattedSentence = sentence.replace(regex, `<mark>${word}</mark>`);
-            const savedUrl = savedInfo.get("savedURL");
-
+            
             // adds all info to anki note.
             if (meaning.length > 0){
                 return invoke('addNote', 6, {
@@ -112,13 +116,13 @@ async function addNote() {
                         "fields": {
                             "Word": word, 
                             "Sentence": formattedSentence,
-                            "JMdictSeq": response.id, 
+                            "JMdictSeq": response[0].id, 
                             "Furigana": furigana, 
                             "Meaning": meaning,
                             "From": savedUrl 
                         },
                         "tags": ["AnkiAdd", ankiTags],
-                        "options": {
+                        "options": { // duplication scope
                             "allowDuplicate": false,
                             "duplicateScope": "deck",
                             "duplicateScopeOptions": 
@@ -136,9 +140,9 @@ async function addNote() {
                             ]
                         }],
                     }
-                })
-            } else {
-                console.log("COULDNT CREATE CARD!"); // catch instead.
+                }).catch((error) => {
+                    console.error(error);
+                });
             }
 
         }
@@ -148,11 +152,16 @@ async function addNote() {
 
 // prevents sentences that does not include the word from being added.
 function getSentence(){
-    const word = document.getElementById("selected-text").textContent.split(",")[0];
+    let word = document.getElementById("selected-text").textContent.split(",")[0];
     const reading = document.getElementById("reading").textContent.split(",")[0];
+
+    if (useReading){ // for highlighting word in anki
+        word = reading; // uses reading instead of kanji.
+    } 
+    
     let sentence = document.getElementById("sentence").value;
 
-    if (sentence.includes(word) || sentence.includes(reading) || sentence.length === 0) {
+    if (sentence.includes(word)) {
         sentence = sentence.replace(/ /g, '<br>');
         browser.runtime.sendMessage({
             action: "saveSentence",
@@ -161,6 +170,11 @@ function getSentence(){
 
         document.getElementById("add-button").disabled = false; 
     } else document.getElementById("add-button").disabled = true; 
+}
+
+function handleChange(){
+    useReading = !useReading;
+    getSentence(); // updates sentence for checking input field.
 }
 
 // gets decks from anki and saves chosen deck.
@@ -223,9 +237,11 @@ invoke('deckNames', 6).then((decks) => {
 // listens to add button on popup window.
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", makeNote);
-    document.getElementById("sentence").addEventListener("input", getSentence); // after every letter is written instead? faster feedback for button.
+    document.getElementById("sentence").addEventListener("input", getSentence);
+    document.getElementById("kana-reading").addEventListener("change", handleChange); // reverses bool for using kan reading
 }
 
+let useReading = false;
 // looksup selected word and displays info in popup. 
 // displays saved info about word.
 browser.runtime.sendMessage({ action: "getData"}).then(response => {
@@ -236,12 +252,14 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
         let meaning = `<ol>`;
         for (let definition of response.sense){
             if (definition.misc.length > 0) {
-                meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
-                definition.misc.map(misc => tagsDict[misc]).join(", ") + '</p>' +
-                '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
+                meaning  += '<span style="font-size: 15px; color: #00beb6; margin: 5px 3px;">' +
+                definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
+                definition.misc.map(misc => tagsDict[misc]).join(", ") + '</span>' + '<li style="margin-bottom: 10px;">' + 
+                definition.gloss.map(meaning => meaning.text).join("; ") + '</li>';
             } else {
-                meaning  += '<p class=tags>' + definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") +
-                '</p>' + '<li class=definitions>' + definition.gloss.map(meaning => meaning.text).join("; ") + '</li>' ;
+                meaning  += '<span style="font-size: 15px; color: #00beb6; margin: 5px 3px;">' + 
+                definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + '</span>' + '<li style="margin-bottom: 10px">' + 
+                definition.gloss.map(meaning => meaning.text).join("; ") + '</li>';
             }
         }
         meaning += `</ol>`;
@@ -251,12 +269,13 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
         const kanjis = response.kanjiCommon;
         const readings = response.kanaCommon;
         if (kanjis.includes(true) || readings.includes(true) ) {
-            document.getElementById("additional-info").innerHTML = `<b>` + "common" + `</b>`;
+            document.getElementById("additional-info").innerHTML = `<b>` + "common word" + `</b>`;
         }
 
-        // default behavoir checkmark for adding word in kana to anki if word is marked as usually kana.
+        // if word is usually written in kana, auto tick checkbox.
         const usuallyKana = response.sense[0].misc[0]; 
         if (usuallyKana == "uk") {
+            useReading = true;
             document.getElementById("kana-reading").checked = true;
         }
     } else {
@@ -271,7 +290,7 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
 
 const tagsDict = { 
     "v5uru":"Godan verb - Uru old class verb (old form of Eru)",
-    "v2g-s":"Nidan verb (lower class) with 'gu' ending (archaic)",
+    "v2g-s":"Nidan verb (lower class) with ぐ ending (archaic)",
     "dei":"deity",
     "ship":"ship name",
     "leg":"legend",
@@ -285,7 +304,7 @@ const tagsDict = {
     "abbr":"abbreviation",
     "exp":"expression",
     "astron":"astronomy",
-    "v2g-k":"Nidan verb (upper class) with 'gu' ending (archaic)",
+    "v2g-k":"Nidan verb (upper class) with ぐ ending (archaic)",
     "aux-v":"auxiliary verb",
     "ctr":"counter",
     "surg":"surgery",
@@ -297,7 +316,7 @@ const tagsDict = {
     "v5k-s":"Godan verb Iku/Yuku (special class)",
     "horse":"horse racing",
     "ornith":"ornithology",
-    "v2w-s":"Nidan verb (lower class) with 'u' ending and 'we' conjugation (archaic)",
+    "v2w-s":"Nidan verb (lower class) with う ending and ゑ conjugation (archaic)",
     "sK":"search-only kanji form",
     "rk":"rarely used kana form",
     "hob":"Hokkaido-ben",
@@ -311,7 +330,7 @@ const tagsDict = {
     "biol":"biology",
     "pol":"polite (teineigo) language",
     "vulg":"vulgar expression or word",
-    "v2n-s":"Nidan verb (lower class) with 'nu' ending (archaic)",
+    "v2n-s":"Nidan verb (lower class) with ぬ ending (archaic)",
     "mil":"military",
     "golf":"golf",
     "min":"mineralogy",
@@ -329,45 +348,45 @@ const tagsDict = {
     "n":"noun",
     "thb":"Touhoku-ben",
     "fish":"fishing",
-    "v5r-i":"Godan verb with 'ru' ending (irregular verb)",
+    "v5r-i":"Godan verb with る ending (irregular verb)",
     "arch":"archaic",
     "v1":"Ichidan verb",
     "bus":"business",
     "tv":"television",
     "euph":"euphemistic",
     "embryo":"embryology",
-    "v2y-k":"Nidan verb (upper class) with 'yu' ending (archaic)",
+    "v2y-k":"Nidan verb (upper class) with ゆ ending (archaic)",
     "uk":"usually kana",
     "rare":"rare term",
-    "v2a-s":"Nidan verb with 'u' ending (archaic)",
+    "v2a-s":"Nidan verb with う ending (archaic)",
     "hanaf":"hanafuda",
     "figskt":"figure skating",
     "agric":"agriculture",
     "given":"given name or forename. Gender not specified",
     "physiol":"physiology",
-    "v5u-s":"Godan verb with 'u' ending (special class)",
+    "v5u-s":"Godan verb with う ending (special class)",
     "chn":"children's language",
     "ev":"event",
     "adv":"adverb",
     "prt":"particle",
     "vi":"intransitive verb",
-    "v2y-s":"Nidan verb (lower class) with 'yu' ending (archaic)",
+    "v2y-s":"Nidan verb (lower class) with ゆ ending (archaic)",
     "kyb":"Kyoto-ben",
     "vk":"Kuru verb - special class",
     "grmyth":"Greek mythology",
-    "vn":"irregular nu verb",
+    "vn":"irregular ぬ verb",
     "electr":"electronics",
     "gardn":"gardening; horticulture",
     "adj-kari":"'kari' adjective (archaic)",
-    "vr":"irregular ru verb; plain form ends with -ri",
+    "vr":"irregular る verb; plain form ends with り",
     "vs":"Suru verb",
     "internet":"Internet",
     "vt":"transitive verb",
     "cards":"card games",
     "stockm":"stock market",
-    "vz":"Ichidan verb - zuru verb (alternative form of -jiru verbs)",
+    "vz":"Ichidan verb - zuru verb (alternative form of -じる verbs)",
     "aux":"auxiliary",
-    "v2h-s":"Nidan verb (lower class) with 'hu/fu' ending (archaic)",
+    "v2h-s":"Nidan verb (lower class) with ふ ending (archaic)",
     "kyu":"Kyuushuu-ben",
     "noh":"noh",
     "econ":"economics",
@@ -380,14 +399,14 @@ const tagsDict = {
     "poet":"poetical term",
     "ateji":"ateji (phonetic) reading",
     "paleo":"paleontology",
-    "v2h-k":"Nidan verb (upper class) with 'hu/fu' ending (archaic)",
+    "v2h-k":"Nidan verb (upper class) with ふ ending (archaic)",
     "civeng":"civil engineering",
     "go":"go (game)",
-    "adv-to":"adverb taking the 'to' particle",
+    "adv-to":"adverb taking the と particle",
     "ent":"entomology",
     "unc":"unclassified",
     "unclass":"unclassified name",
-    "on-mim":"onomatopoeic or mimetic word",
+    "on-mim":"onomatopoeic",
     "yoji":"yojijukugo",
     "n-adv":"adverbial-noun",
     "print":"printing",
@@ -400,9 +419,9 @@ const tagsDict = {
     "obs":"obsolete term",
     "relig":"religion",
     "iK":"word containing irregular kanji usage",
-    "v2k-s":"Nidan verb (lower class) with 'ku' ending (archaic)",
+    "v2k-s":"Nidan verb (lower class) with く ending (archaic)",
     "conj":"conjunction",
-    "v2s-s":"Nidan verb (lower class) with 'su' ending (archaic)",
+    "v2s-s":"Nidan verb (lower class) with す ending (archaic)",
     "geol":"geology",
     "geom":"geometry",
     "anat":"anatomy",
@@ -412,9 +431,9 @@ const tagsDict = {
     "fam":"familiar language",
     "myth":"mythology",
     "gramm":"grammar",
-    "v2k-k":"Nidan verb (upper class) with 'ku' ending (archaic)",
+    "v2k-k":"Nidan verb (upper class) with く ending (archaic)",
     "id":"idiomatic expression",
-    "v5aru":"Godan verb aru (special class)",
+    "v5aru":"Godan verb ある (special class)",
     "psyanal":"psychoanalysis",
     "comp":"computing",
     "creat":"creature",
@@ -423,27 +442,27 @@ const tagsDict = {
     "v-unspec":"verb unspecified",
     "io":"irregular okurigana usage",
     "work":"work of art; literature; music",
-    "adj-ix":"adjective - yoi/ii class",
+    "adj-ix":"adjective - よい/いい class",
     "phil":"philosophy",
     "doc":"document",
     "math":"mathematics",
     "pharm":"pharmacology",
-    "adj-nari":"archaic/formal form of na-adjective",
-    "v2r-k":"Nidan verb (upper class) with 'ru' ending (archaic)",
+    "adj-nari":"archaic/formal form of な-adjective",
+    "v2r-k":"Nidan verb (upper class) with る ending (archaic)",
     "adj-f":"noun or verb acting prenominally",
-    "adj-i":"i-adjective",
+    "adj-i":"い-adjective",
     "audvid":"audiovisual",
     "rkb":"Ryuukyuu-ben",
-    "adj-t":"'taru' adjective",
-    "v2r-s":"Nidan verb (lower class) with 'ru' ending (archaic)",
+    "adj-t":"taru-adjective",
+    "v2r-s":"Nidan verb (lower class) with る ending (archaic)",
     "Buddh":"Buddhism",
     "biochem":"biochemistry",
-    "v2b-k":"Nidan verb (upper class) with 'bu' ending (archaic)",
+    "v2b-k":"Nidan verb (upper class) with ぶ ending (archaic)",
     "vs-s":"suru verb (special class)",
     "surname":"family or surname",
     "physics":"physics",
     "place":"place name",
-    "v2b-s":"Nidan verb (lower class) with 'bu' ending (archaic)",
+    "v2b-s":"Nidan verb (lower class) with ぶ ending (archaic)",
     "kabuki":"kabuki",
     "prowres":"professional wrestling",
     "product":"product name",
@@ -452,12 +471,12 @@ const tagsDict = {
     "adj-ku":"'ku' adjective (archaic)",
     "telec":"telecommunications",
     "vs-i":"suru verb - included",
-    "v2z-s":"Nidan verb (lower class) with 'zu' ending (archaic)",
+    "v2z-s":"Nidan verb (lower class) with ず ending (archaic)",
     "organization":"organization name",
     "char":"character",
     "engr":"engineering",
     "logic":"logic",
-    "v2m-s":"Nidan verb (lower class) with 'mu' ending (archaic)",
+    "v2m-s":"Nidan verb (lower class) with む ending (archaic)",
     "col":"colloquial",
     "archeol":"archeology",
     "cop":"copula",
@@ -469,58 +488,58 @@ const tagsDict = {
     "MA":"martial arts",
     "finc":"finance",
     "v1-s":"Ichidan verb kureru (special class)",
-    "v2m-k":"Nidan verb (upper class) with 'mu' ending (archaic)",
+    "v2m-k":"Nidan verb (upper class) with む ending (archaic)",
     "manga":"manga",
     "shogi":"shogi",
     "group":"group",
-    "adj-no":"nouns which may take the genitive case particle 'no'",
-    "adj-na":"na-adjective",
+    "adj-no":"noun which may take the genitive case particle の",
+    "adj-na":"な-adjective",
     "sens":"sensitive",
     "law":"law",
     "vet":"veterinary terms",
     "mahj":"mahjong",
-    "v4b":"Yodan verb with 'bu' ending (archaic)",
+    "v4b":"Yodan verb with ぶ ending (archaic)",
     "rail":"railway",
-    "v4g":"Yodan verb with 'gu' ending (archaic)",
+    "v4g":"Yodan verb with ぐ ending (archaic)",
     "elec":"electricity; elec. eng.",
     "film":"film",
     "mining":"mining",
-    "v4h":"Yodan verb with 'hu/fu' ending (archaic)",
-    "v4k":"Yodan verb with 'ku' ending (archaic)",
-    "v4m":"Yodan verb with 'mu' ending (archaic)",
-    "v4n":"Yodan verb with 'nu' ending (archaic)",
+    "v4h":"Yodan verb with ふ ending (archaic)",
+    "v4k":"Yodan verb with く ending (archaic)",
+    "v4m":"Yodan verb with む ending (archaic)",
+    "v4n":"Yodan verb with ぬ ending (archaic)",
     "sumo":"sumo",
-    "v4s":"Yodan verb with 'su' ending (archaic)",
-    "v4r":"Yodan verb with 'ru' ending (archaic)",
+    "v4s":"Yodan verb with す ending (archaic)",
+    "v4r":"Yodan verb with る ending (archaic)",
     "person":"full name of a particular person",
-    "v4t":"Yodan verb with 'tsu' ending (archaic)",
+    "v4t":"Yodan verb with つ ending (archaic)",
     "boxing":"boxing",
     "oK":"word containing out-dated kanji or kanji usage",
     "cloth":"clothing",
     "joc":"jocular; humorous term",
     "politics":"politics",
-    "v2t-k":"Nidan verb (upper class) with 'tsu' ending (archaic)",
+    "v2t-k":"Nidan verb (upper class) with つ ending (archaic)",
     "tsb":"Tosa-ben",
-    "v5b":"Godan verb with 'bu' ending",
+    "v5b":"Godan verb with ぶ ending",
     "ling":"linguistics",
     "bot":"botany",
-    "v2t-s":"Nidan verb (lower class) with 'tsu' ending (archaic)",
-    "v5g":"Godan verb with 'gu' ending",
+    "v2t-s":"Nidan verb (lower class) with つ ending (archaic)",
+    "v5g":"Godan verb with ぐ ending",
     "med":"medicine",
-    "v5k":"Godan verb with 'ku' ending",
+    "v5k":"Godan verb with く ending",
     "mech":"mechanical engineering",
-    "v5n":"Godan verb with 'nu' ending",
-    "v5m":"Godan verb with 'mu' ending",
-    "v2d-k":"Nidan verb (upper class) with 'dzu' ending (archaic)",
-    "v5r":"Godan verb with 'ru' ending",
-    "v5t":"Godan verb with 'tsu' ending",
-    "v5s":"Godan verb with 'su' ending",
-    "v5u":"Godan verb with 'u' ending",
+    "v5n":"Godan verb with ぬ ending",
+    "v5m":"Godan verb with む ending",
+    "v2d-k":"Nidan verb (upper class) with づ ending (archaic)",
+    "v5r":"Godan verb with る ending",
+    "v5t":"Godan verb with つ ending",
+    "v5s":"Godan verb with す ending",
+    "v5u":"Godan verb with う ending",
     "Shinto":"Shinto",
     "station":"railway station",
     "chmyth":"Chinese mythology",
     "dated":"dated term",
-    "v2d-s":"Nidan verb (lower class) with 'dzu' ending (archaic)",
+    "v2d-s":"Nidan verb (lower class) with づ ending (archaic)",
     "psych":"psychology",
     "adj-pn":"pre-noun adjectival",
     "ok":"out-dated or obsolete kana usage",
