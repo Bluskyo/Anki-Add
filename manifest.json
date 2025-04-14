@@ -8,9 +8,9 @@
     "48": "icons/anki-Add-Icon.svg"
   },
   "browser_action": {
-      "default_icon": "icons/anki-Add-Icon.svg",
-      "default_title": "Anki-add",
-      "default_popup": "popup/info.html"
+    "default_icon": "icons/anki-Add-Icon.svg",
+    "default_title": "Anki-add",
+    "default_popup": "popup/info.html"
   },
   "content_scripts": [
     {
@@ -19,7 +19,7 @@
     }
   ],
   "permissions": ["activeTab", "storage", "tabs"],
-  "background": { "scripts": ["background.js"], "persistent": false },
+  "background": { "scripts": ["background.js"], "persistent": true },
   "web_accessible_resources": ["data/jmdict-eng-3.6.1.json"]
 
 }

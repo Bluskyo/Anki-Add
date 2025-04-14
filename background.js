@@ -12,7 +12,6 @@ function openDb() {
     req.onsuccess = function (evt) {
       console.log("openDb DONE");
       db = req.result;
-      //browser.storage.local.set({selectedText: "Highlight a word to lookup information!"});
       resolve(db);
     };
 
@@ -36,11 +35,13 @@ function openDb() {
       const db = evt.target.result;
 
       console.log("Reading dictfile...");
+
       fetch("data/jmdict-eng-3.6.1.json")
       .then(response => response.json())
       .then(json => {
         addDataToDb(db, json.words);
       });
+
     }
   
   });
@@ -98,6 +99,7 @@ async function lookupInDb(word, index){
         console.log("Word data:", request.result)
         resolve(request.result);
       } else {
+        console.log("word data not found!");
         reject("Not found");
       }
 
@@ -318,104 +320,104 @@ const inflections = {
   "じゃなかった" : ["negative past", "na-adj"]
 };
 
-// refactor lookup should happen in background script.
-openDb().then(() => {
-  let wordData;
-  const savedInfo = new Map();
+let wordData;
+const savedInfo = new Map();
 
-  browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    switch(message.action){
-      case "saveSelection":
-        savedInfo.set("selectedText", message.text);
-        savedInfo.set("sentence", ""); // clears sentence from previous sentence.
-        savedInfo.set("savedURL", message.url);
-  
-        const word = message.text;
-        const kanjiRe = /[一-龯]/;
-        const containsKanji = kanjiRe.test(word);
-  
-        // optimistic search:
-        if (containsKanji){
-          let result = await lookupInDb(word, "kanjiIndex").catch((err) => { console.error(err) });
-  
-          if (result){
-            return wordData = result;
-          } else {
-            // optimistic search failed word has a conjugation.
-            const conjugationData = findConjugation(word);
-            const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
-            const stem = conjugationData.stem;
-            let dictonaryForm = [];
-  
-            // in some conjugations verbs can immediately be identified as godan
-            // if conjugation is more ambiguous runs the identifyVerb func. 
-            switch(wordClass) {
-              case "verb":
-                dictonaryForm = identifyVerb(wordClass, conjugationData.form, stem);
-                break;
-              case "verb ichidan":
-                if(conjugationData.form.includes("imperative")){
-                  dictonaryForm.push(stem.substring(0, word.length - 1) + "る");
-                } else dictonaryForm.push(stem + "る");
-                break;
-              case "verb mu,bu,nu":
-                dictonaryForm.push(
-                  stem.substring(-1, 1) + "む", 
-                  stem.substring(-1, 1) + "ぶ", 
-                  stem.substring(-1, 1) + "ぬ");
-                break;
-              case "verb u,ru,tsu":
-                dictonaryForm.push(
-                  stem.substring(-1, 1) + "う", 
-                  stem.substring(-1, 1) + "る", 
-                  stem.substring(-1, 1) + "つ");
-                break;
-              case "i-adj":
-                dictonaryForm.push(stem + "い");
-                break;
-              case "verb-done":
-                dictonaryForm.push(stem.substring(0, word.length - 1));
-                break;
-              case "na-adj":
-              case "noun":
-  
-            }
-  
-            // finds first match covers edge cases like "mu,bu,nu" with same endings.
-            for (const dictform of dictonaryForm){
-              let result = await lookupInDb(dictform, "kanjiIndex").catch((err) => { console.error(err) });
-  
-              if (result){
-                return wordData = result;
-              } 
-            }
-  
-            // cant find conjugation.
-            return wordData = null;
-          }
+openDb(); // fix: stops popup untill db population is done.
+
+browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  switch(message.action){
+    case "saveSelection":
+      savedInfo.set("selectedText", message.text);
+      savedInfo.set("sentence", ""); // clears sentence from previous sentence.
+      savedInfo.set("savedURL", message.url);
+
+      const word = message.text;
+      const kanjiRe = /[一-龯]/;
+      const containsKanji = kanjiRe.test(word);
+
+      // optimistic search:
+      if (containsKanji){
+        let result = await lookupInDb(word, "kanjiIndex").catch((err) => { console.error(err) });
+        
+        if (result){
+          return wordData = result;
         } else {
-          let result = await lookupInDb(word, "readingIndex");
-          if (result){
-            return wordData = result;
-          } else {
-            return wordData = null;
-          }}
-      case "getData":
-        return wordData;
-      case "getSavedInfo":
-        return savedInfo;
-      case "getAllData":
-        return [wordData, savedInfo];
-      case "saveSentence":
-        savedInfo.set("sentence", message.text);
-        return true;
-      case "saveDeck":
-        savedInfo.set("savedDeck", message.text);
-        return true;
-    }
+          // optimistic search failed word has a conjugation.
+          const conjugationData = findConjugation(word);
+          const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
+          const stem = conjugationData.stem;
+          let dictonaryForm = [];
 
-    return true; // keeps the response channel open for async func
-    
-  });
+          // in some conjugations verbs can immediately be identified as godan
+          // if conjugation is more ambiguous runs the identifyVerb func. 
+          switch(wordClass) {
+            case "verb":
+              dictonaryForm = identifyVerb(wordClass, conjugationData.form, stem);
+              break;
+            case "verb ichidan":
+              if(conjugationData.form.includes("imperative")){
+                dictonaryForm.push(stem.substring(0, word.length - 1) + "る");
+              } else dictonaryForm.push(stem + "る");
+              break;
+            case "verb mu,bu,nu":
+              dictonaryForm.push(
+                stem.substring(-1, 1) + "む", 
+                stem.substring(-1, 1) + "ぶ", 
+                stem.substring(-1, 1) + "ぬ");
+              break;
+            case "verb u,ru,tsu":
+              dictonaryForm.push(
+                stem.substring(-1, 1) + "う", 
+                stem.substring(-1, 1) + "る", 
+                stem.substring(-1, 1) + "つ");
+              break;
+            case "i-adj":
+              dictonaryForm.push(stem + "い");
+              break;
+            case "verb-done":
+              dictonaryForm.push(stem.substring(0, word.length - 1));
+              break;
+            case "na-adj":
+            case "noun":
+          }
 
+          // finds first match covers edge cases like "mu,bu,nu" with same endings.
+          for (const dictform of dictonaryForm){
+            let result = await lookupInDb(dictform, "kanjiIndex").catch((err) => { console.error(err) });
+
+            if (result){
+              return wordData = result;
+            } 
+          }
+
+          // cant find conjugation.
+          console.log("couldnt find word!");
+          return wordData = null;
+        }
+      } else {
+        let result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });;
+
+        if (result){
+          return wordData = result;
+        } else {
+          console.log("couldnt find word!")
+          return wordData = null;
+        }
+      }
+    case "getData":
+      return wordData;
+    case "getSavedInfo":
+      return savedInfo;
+    case "getAllData":
+      return [wordData, savedInfo];
+    case "saveSentence":
+      savedInfo.set("sentence", message.text);
+      return true;
+    case "saveDeck":
+      savedInfo.set("savedDeck", message.text);
+      return true;
+  }
+
+  return true; // keeps the response channel open for async func
 });

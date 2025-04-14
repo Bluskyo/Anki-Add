@@ -8,7 +8,9 @@ document.addEventListener("mouseup", () => {
 
     if (selection == ""){ // checks input tag, getselection cant read these.
         const input = currentElement.value;
-        selection = input.substring(selectionStart, selectionEnd);
+        if (input){
+            selection = input.substring(selectionStart, selectionEnd);
+        }
     }
     
     let containsJP = japaneseRE.test(selection);

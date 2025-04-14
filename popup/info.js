@@ -69,7 +69,7 @@ async function createNoteType() {
                 {
                     "Name": "Japanese",
                     "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{hint:Sentence}}</div>",
-                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a>{{Meaning}}</div></div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{Sentence}}</div></a>{{Meaning}}</div></div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script><center>{{Pronunciation}}</center>'
+                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div></a><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Sentence}}</a></div>{{Meaning}}</div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Word}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</a></div><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Sentence}}</a></div><div class=definition>{{Meaning}}</div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script><center>{{Pronunciation}}</center>'
                 }
             ]
         }
@@ -184,7 +184,7 @@ invoke('deckNames', 6).then((decks) => {
 
         if (decks == undefined) {
             let option = document.createElement("option");
-            let optionText = document.createTextNode("Couldn't connect to Anki!");
+            let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
             option.appendChild(optionText);
 
             ankiDecksDropdDown.appendChild(option);
@@ -238,7 +238,7 @@ invoke('deckNames', 6).then((decks) => {
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", makeNote);
     document.getElementById("sentence").addEventListener("input", getSentence);
-    document.getElementById("kana-reading").addEventListener("change", handleChange); // reverses bool for using kan reading
+    document.getElementById("kana-reading").addEventListener("change", handleChange); // reverses bool for using kana reading
 }
 
 let useReading = false;
@@ -279,13 +279,17 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
             document.getElementById("kana-reading").checked = true;
         }
     } else {
-        browser.runtime.sendMessage({ action: "getData"}).then(response => {
-            document.getElementById("selected-text").textContent = `could not find: "${response.selectedText}"`;
-            document.getElementById("reading").textContent = "";
-            document.getElementById("description").textContent = "";
-        })
-    }
+        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
+            const word = response.get("selectedText");
+            if (word){
+                document.getElementById("reading").innerHTML = `Could not find "${word}" in dictonary!`;
 
+            } else {
+                document.getElementById("reading").innerHTML = "Select a word to look up!";
+            }
+        });
+
+    }
 }).catch(error => console.error("Error retrieving text:", error));
 
 const tagsDict = { 
