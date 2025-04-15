@@ -40,7 +40,7 @@ async function makeNote(){
         createNoteType();
     }
 
-    const addingNote = await addNote(); //
+    const addingNote = await addNote();
 
     if (addingNote !== null) {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
@@ -241,7 +241,8 @@ window.onload = () => {
     document.getElementById("kana-reading").addEventListener("change", handleChange); // reverses bool for using kana reading
 }
 
-let useReading = false;
+let useReading = false; // remembers if entry should be in hiragana or not.
+
 // looksup selected word and displays info in popup. 
 // displays saved info about word.
 browser.runtime.sendMessage({ action: "getData"}).then(response => {
