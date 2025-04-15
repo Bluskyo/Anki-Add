@@ -31,16 +31,16 @@ function invoke(action, version, params={}) {
     })
 }
 
-// adds the note to anki deck.  ///
+// adds the note to anki deck.
 async function makeNote(){
     const models = await invoke('modelNames', 6);
 
-    if (!models.includes("AnkiAdd TEST")){ //
+    if (!models.includes("AnkiAdd")){
         console.log("missing Anki note type! creating...")
         createNoteType();
     }
 
-    const addingNote = await addNote();
+    const addingNote = await addNote(); //
 
     if (addingNote !== null) {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
@@ -57,19 +57,19 @@ async function makeNote(){
     }
 
 }
-///
+
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
-            "modelName": "AnkiAdd TEST", ///
+            "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {  font-size: 25px;  --text-color: black;  word-wrap: break-word; } .card.night_mode {  font-size: 24px;  --text-color: white;  word-wrap: break-word; }  div, a {  color: var(--text-color); } .big { font-size: 50px; text-align: center; } .medium { font-size:30px; text-align: center; } .small { font-size: 18px; text-align: center;}",
+            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n  word-wrap: break-word;\n}\n.card.night_mode {\n  font-size: 24px;\n  --text-color: white;\n  word-wrap: break-word;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n    margin-bottom: 10px;\n}",
             "isCloze": false,
             "cardTemplates": [
                 {
                     "Name": "Japanese",
-                    "Front": "<div class=small>{{hint:Furigana}}</div><div class=big>{{Word}}</div><div class=small>{{hint:Sentence}}</div>",
-                    "Back": '<script>function isAndroid() {return /Android/i.test(navigator.userAgent);}if (isAndroid()) {document.body.classList.add("android");} else {document.body.classList.add("desktop");}</script><div class="android-only" style="display: none;"><a href="kanjistudy://word?id={{JMdictSeq}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</div></a><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Sentence}}</a></div>{{Meaning}}</div><div class="desktop-only" style="display: none;"><a href="https://jisho.org/search/{{Word}}"><div class=small>{{Furigana}}</div><div class=big>{{Word}}</a></div><a href="https://jisho.org/search/{{Sentence}}"><div class=small>{{Sentence}}</a></div><div class=definition>{{Meaning}}</div><script>if (isAndroid()) {document.querySelector(".android-only").style.display = "block";} else {document.querySelector(".desktop-only").style.display = "block";}</script><center>{{Pronunciation}}</center>'
+                    "Front": "<div class=small>{{hint:Furigana}}</div>\n<div class=big>{{Word}}</div>\n<div class=small>{{hint:Sentence}}</div>",
+                    "Back": "<script>\nfunction isAndroid() {\n  return /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\n  document.body.classList.add(\"android\");\n} else {\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  {{Meaning}}\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  <div class=definition>{{Meaning}}</div>\n</div>\n<script>\n  if (isAndroid()) {\n    document.querySelector(\".android-only\").style.display = \"block\";\n  } else {\n    document.querySelector(\".desktop-only\").style.display = \"block\";\n  }\n</script>\n<center>{{Pronunciation}}</center>"
                 }
             ]
         }
@@ -112,7 +112,7 @@ async function addNote() {
                 return invoke('addNote', 6, {
                     "note": {
                         "deckName": savedDeck, 
-                        "modelName": "AnkiAdd TEST", //
+                        "modelName": "AnkiAdd",
                         "fields": {
                             "Word": word, 
                             "Sentence": formattedSentence,
@@ -252,13 +252,13 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
         let meaning = `<ol>`;
         for (let definition of response.sense){
             if (definition.misc.length > 0) {
-                meaning  += '<span style="font-size: 15px; color: #00beb6; margin: 5px 3px;">' +
+                meaning  += '<span class="tags">' +
                 definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
-                definition.misc.map(misc => tagsDict[misc]).join(", ") + '</span>' + '<li style="margin-bottom: 10px;">' + 
+                definition.misc.map(misc => tagsDict[misc]).join(", ") + '</span>' + '<li class="tag-list">' + 
                 definition.gloss.map(meaning => meaning.text).join("; ") + '</li>';
             } else {
-                meaning  += '<span style="font-size: 15px; color: #00beb6; margin: 5px 3px;">' + 
-                definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + '</span>' + '<li style="margin-bottom: 10px">' + 
+                meaning  += '<span class="tags">' + 
+                definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + '</span>' + '<li class="tag-list">' + 
                 definition.gloss.map(meaning => meaning.text).join("; ") + '</li>';
             }
         }
@@ -327,8 +327,8 @@ const tagsDict = {
     "male":"male term or language",
     "motor":"motorsport",
     "vidg":"video games",
-    "n-pref":"noun, used as a prefix",
-    "n-suf":"noun, used as a suffix",
+    "n-pref":"noun used as a prefix",
+    "n-suf":"noun used as a suffix",
     "suf":"suffix",
     "hon":"honorific or respectful (sonkeigo) language",
     "biol":"biology",

@@ -53,7 +53,6 @@ p {
 .word-info {
   max-width: fit-content;
   position: center;
-
 }
 
 .example-sentence {
@@ -71,15 +70,6 @@ p {
   width: 200px;
 }
 
-.tags {
-  font-size: 12px;
-  margin: 3px;
-}
-
-.definitions {
-  margin-bottom: 10px;
-}
-
 .kanji {
   font-size: 35px;
   margin: 5px 1px 0px 40px;
@@ -88,4 +78,15 @@ p {
 .readings {
   font-size: 15px;
   margin: 5px 1px 0px 40px;
+}
+
+.tags {
+  font-size: 15px; 
+  color: #00beb6; 
+  margin: 5px 3px;
+}
+
+.tag-list {
+  font-size: 1.2rem; 
+  margin-bottom: 10px;
 }
