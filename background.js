@@ -183,6 +183,14 @@ async function findDictonaryForm(word){
     } 
   }
 
+  // word must be ru verb.
+  const ruVerb = stem + "る";
+  let result = await lookupInDb(ruVerb, "kanjiIndex").catch((err) => { console.error(err) });
+
+  if (result){
+    return wordData = result;
+  }
+
   // cant find conjugation.
   console.log("couldnt find word!");
   return wordData = null;
@@ -193,7 +201,7 @@ async function findDictonaryForm(word){
 function findConjugations(word){
   let conjugationData = {
     wordClass : "",
-    form: "",
+    form: [],
     stem: "",
   };
 
@@ -202,7 +210,7 @@ function findConjugations(word){
 
   if (endInflectionInfo) {
     console.log("found inflection:", endInflectionInfo);   
-    conjugationData.form = (endInflectionInfo[0]);
+    conjugationData.form.push(endInflectionInfo[0]);
     conjugationData.wordClass = endInflectionInfo[1];
     conjugationData.stem = word;
     return conjugationData;
@@ -223,7 +231,9 @@ function findConjugations(word){
     if (i === 0) {
       if (lastAttempt[lastAttempt.length - 1] == lastMatch[lastMatch.length - 1]){ // finds that match is already attempted, breaks to avoid loops.
         conjugationData.stem = inflection.join(""); // rest of string has no conjugations found and have to be stem.
+        console.log("WordClass detected:", conjugationData.wordClass);
         console.log("forms deteted:", conjugationData.form);
+        console.log("stem deteted:", conjugationData.stem);
         return conjugationData;
       } else {
         const index = word.indexOf(lastMatch[lastMatch.length - 1]);
@@ -233,7 +243,7 @@ function findConjugations(word){
 
         // if ta is detected after past is already found is stem! HOW TO FIX?
         if (!conjugationData.form.includes(inflectionInfo[0])){
-          conjugationData.form = inflectionInfo[0]; //  add form to array of current forms found
+          conjugationData.form.push(inflectionInfo[0]); //  add form to array of current forms found
           conjugationData.wordClass = inflectionInfo[1]; // update wordclass to current wordclass.
         }
 
@@ -342,12 +352,15 @@ const inflections = {
   "なかったら" : ["tara-form negative", "verb"],
   "なくて" : ["te-form negative", "verb"],
   ////// ichidan  only ///// 
-  "て" : ["te-form", "verb ichidan"], /// te issue
+  "て" : ["te-form", "verb ichidan"], /// te issue  // clashes with te form. needs additional check. /// ichidan te form and tsu verb clash
   "られる" : ["potential/passive", "verb ichidan"], 
   "られ" : ["potential/passive", "verb ichidan"], 
+  "られない": ["potential/passive negative", "verb ichidan"], 
   "させる" : ["causative", "verb ichidan"], // 話す problem
   "させ" : ["causative", "verb ichidan"],
+  "させない": ["causative-passive", "verb ichidan"], 
   "させられる": ["causative-passive", "verb ichidan"], // 話す
+  "させられない": ["causative-passive negative", "verb ichidan"], 
   "させられ": ["causative-passive", "verb ichidan"], // 話す
   ////// godan only /////
   "した" : ["past", "verb su"], 
@@ -360,7 +373,8 @@ const inflections = {
   "いで" : ["te-form", "verb gu"], 
   "んで" : ["te-form", "verb mu,bu,nu"],
   "って" : ["te-form", "verb u,ru,tsu"], 
-  //"れる" : ["potential", "verb"], 
+
+  "れる" : ["potential", "verb"], 
   "せない" : ["potential negative", "verb su"], // 話す
   "ける" : ["potential", "verb ku"], 
   "けない" : ["potential negative", "verb ku"], 
@@ -378,8 +392,8 @@ const inflections = {
   //"れない" : ["potential", "verb ichidan"], // can be ru verb, but needs same ending.
   "てる" : ["potential", "verb tsu"],
   "てない" : ["potential negative", "verb tsu"],
-  "れる" : ["potential", "verb"], 
-  "れない" : ["passive negative", "verb"], 
+
+  "れない" : ["passive negative", "verb"], // 走れない still problems with ru verbs // fix after match is found? 
   "せる" : ["causative", "verb"], 
   "せない" : ["causative negative", "verb"], // させな ?
   "せられる" : ["causative passive", "verb"], 
@@ -436,6 +450,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         if (result){
           return wordData = result;
         } else {
+          // optimistic search failed word has a conjugation.
           return findDictonaryForm(word);
         }
       }
