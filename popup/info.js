@@ -99,12 +99,20 @@ async function addNote() {
             const ankiTags = ankiFormat.replace(/,/g, " ");  
 
             // marking word in example sentence logic:
-            const sentence = savedInfo.get("sentence"); 
+            let sentence = savedInfo.get("sentence"); 
             if (useReading){ // for highlighting word in anki
                 word = furigana; // uses reading instead of kanji.
             } 
-            const regex = new RegExp(word, "g"); 
-            const formattedSentence = sentence.replace(regex, `<mark>${word}</mark>`);
+            // marks entry or conjugated highlighted word.
+
+            if (sentence.includes(word)) {
+                const regex = new RegExp(word, "g"); 
+                sentence = sentence.replace(regex, `<mark>${word}</mark>`);
+            } else {
+                const selectedText = savedInfo.get("selectedText")
+                const regex = new RegExp(selectedText, "g"); 
+                sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
+            }
             
             // adds all info to anki note.
             if (meaning.length > 0){
@@ -114,8 +122,8 @@ async function addNote() {
                         "modelName": "AnkiAdd",
                         "fields": {
                             "Word": word, 
-                            "Sentence": formattedSentence,
-                            "JMdictSeq": response[0].id, 
+                            "Sentence": sentence,
+                            "JMdictSeq": wordData.id, 
                             "Furigana": furigana, 
                             "Meaning": meaning,
                             "From": savedUrl 
@@ -151,7 +159,8 @@ async function addNote() {
 
 // prevents sentences that does not include the word from being added.
 function getSentence(){
-    let word = document.getElementById("selected-text").textContent.split(",")[0];
+    const entry = document.getElementById("selected-text").textContent.split(",")[0]; // word found in dict
+    const selectedWord = document.getElementById("conjugation").textContent.split(" > ")[0]; // word selected by user. (can have conjugations)
     const reading = document.getElementById("reading").textContent.split(",")[0];
 
     if (useReading){ // for highlighting word in anki
@@ -160,7 +169,7 @@ function getSentence(){
 
     let sentence = document.getElementById("sentence").value;
 
-    if (sentence.includes(word) || sentence.length == 0) {
+    if (sentence.includes(entry) || sentence.includes(selectedWord)|| sentence.length == 0) {
         sentence = sentence.replace(/ /g, '<br>');
         browser.runtime.sendMessage({
             action: "saveSentence",
@@ -248,7 +257,9 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     // response = [wordData, savedInfo]
     if (response[0]) {
         document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response[0].kanji.join(", ") + `</p>`;
-        document.getElementById("conjugation").innerHTML = response[1].get("selectedText") + " > " + response[0].forms;
+        if (response[0].forms) {
+            document.getElementById("conjugation").innerHTML = response[1].get("selectedText") + " > " + response[0].forms;
+        }
         document.getElementById("reading").innerHTML = `<p class=readings>` + response[0].kana.join(", ") + `</p>`;
 
         let meaning = `<ol>`;
