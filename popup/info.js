@@ -63,7 +63,7 @@ async function createNoteType() {
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n  word-wrap: break-word;\n}\n.card.night_mode {\n  font-size: 24px;\n  --text-color: white;\n  word-wrap: break-word;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n    margin-bottom: 10px;\n}",
+            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n  word-wrap: break-word;\n}\n.card.night_mode {\n  font-size: 24px;\n  --text-color: white;\n  word-wrap: break-word;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
             "isCloze": false,
             "cardTemplates": [
                 {
@@ -75,7 +75,7 @@ async function createNoteType() {
         }
     )
 }
-
+// creates card and adds it to anki.
 // needs error handling.
 async function addNote() {
     browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
@@ -87,7 +87,6 @@ async function addNote() {
             const savedInfo = response[1];  
             const savedUrl = savedInfo.get("savedURL");
             const savedDeck = savedInfo.get("savedDeck")
-
 
             // formatting for tags in anki
             let allTags = [];
@@ -245,13 +244,15 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 
 // looksup selected word and displays info in popup. 
 // displays saved info about word.
-browser.runtime.sendMessage({ action: "getData"}).then(response => {
-    if (response) {
-        document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response.kanji.join(", ") + `</p>`;
-        document.getElementById("reading").innerHTML = `<p class=readings>` + response.kana.join(", ") + `</p>`;
+browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
+    // response = [wordData, savedInfo]
+    if (response[0]) {
+        document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response[0].kanji.join(", ") + `</p>`;
+        document.getElementById("conjugation").innerHTML = response[1].get("selectedText") + " > " + response[0].forms;
+        document.getElementById("reading").innerHTML = `<p class=readings>` + response[0].kana.join(", ") + `</p>`;
 
         let meaning = `<ol>`;
-        for (let definition of response.sense){
+        for (let definition of response[0].sense){
             if (definition.misc.length > 0) {
                 meaning  += '<span class="tags">' +
                 definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
@@ -267,14 +268,14 @@ browser.runtime.sendMessage({ action: "getData"}).then(response => {
         document.getElementById("description").innerHTML = meaning;
 
         // shows common tag for common words.
-        const kanjis = response.kanjiCommon;
-        const readings = response.kanaCommon;
+        const kanjis = response[0].kanjiCommon;
+        const readings = response[0].kanaCommon;
         if (kanjis.includes(true) || readings.includes(true) ) {
             document.getElementById("additional-info").innerHTML = `<b>` + "common word" + `</b>`;
         }
 
         // if word is usually written in kana, auto tick checkbox.
-        const usuallyKana = response.sense[0].misc[0]; 
+        const usuallyKana = response[0].sense[0].misc[0]; 
         if (usuallyKana == "uk") {
             useReading = true;
             document.getElementById("kana-reading").checked = true;
@@ -561,4 +562,3 @@ const tagsDict = {
     "pn":"pronoun",
     "gikun":"gikun (meaning as reading) or jukujikun (special kanji reading)"
 };
-  

@@ -108,7 +108,7 @@ async function lookupInDb(word, index){
 
 }
 
-async function findDictonaryForm(word){
+async function findDictonaryForm(word, dbIndex){
   const conjugationData = findConjugations(word);
   const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
   const stem = conjugationData.stem;
@@ -118,51 +118,56 @@ async function findDictonaryForm(word){
   // if conjugation is more ambiguous runs the identifyVerb func. 
   switch(wordClass) {
     case "verb":
-      dictonaryForm = identifyVerb(wordClass, conjugationData.form, stem);
+      dictonaryForm = identifyVerb(stem);
       break;
-    case "verb ichidan":
-      if(conjugationData.form.includes("imperative")){
-        dictonaryForm.push(stem.substring(0, word.length - 1) + "る");
-      } else dictonaryForm.push(stem + "る");
+    case "ichidan": 
+      dictonaryForm.push(stem.substring(0, word.length - 1) + "る");
       break;
     case "verb mu,bu,nu":
       dictonaryForm.push(
-        stem.substring(-1, 1) + "む", 
-        stem.substring(-1, 1) + "ぶ", 
-        stem.substring(-1, 1) + "ぬ");
+        stem + "む", 
+        stem + "ぶ", 
+        stem + "ぬ");
       break;
     case "verb u,ru,tsu":
       dictonaryForm.push(
-        stem.substring(-1, 1) + "う", 
-        stem.substring(-1, 1) + "る", 
-        stem.substring(-1, 1) + "つ");
+        stem + "う", 
+        stem + "る", 
+        stem + "つ");
       break;
-    case "verb su":
-      dictonaryForm.push(stem.substring(-1, 1) + "す");
+    case "verb ichidan,su":
+      dictonaryForm.push(
+        stem + "る", 
+        stem + "す");
+      break;
+      // in these conjugations the modified trailing gana is in the detected string.
+      // therefore the stem is already found only need default gana. 
+    case "verb su": 
+      dictonaryForm.push(stem + "す");
       break;
     case "verb ku":
-      dictonaryForm.push(stem.substring(-1, 1) + "く");
+      dictonaryForm.push(stem + "く");
       break;
     case "verb gu":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぐ");
+      dictonaryForm.push(stem + "ぐ");
       break;
     case "verb mu":
-      dictonaryForm.push(stem.substring(-1, 1) + "む");
+      dictonaryForm.push(stem + "む");
       break;
     case "verb bu":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぶ");
+      dictonaryForm.push(stem + "ぶ");
       break;
     case "verb nu":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぬ");
+      dictonaryForm.push(stem + "ぬ");
       break;
     case "verb u":
-      dictonaryForm.push(stem.substring(-1, 1) + "う");
+      dictonaryForm.push(stem + "う");
       break;
     case "verb ru":
-      dictonaryForm.push(stem.substring(-1, 1) + "る");
+      dictonaryForm.push(stem + "る");
       break;
     case "verb tsu":
-      dictonaryForm.push(stem.substring(-1, 1) + "つ");
+      dictonaryForm.push(stem + "つ");
       break;
     case "i-adj":
       dictonaryForm.push(stem + "い");
@@ -171,30 +176,102 @@ async function findDictonaryForm(word){
       dictonaryForm.push(stem.substring(0, word.length - 1));
       break;
     case "na-adj":
-    case "noun":
   }
 
   // finds first match covers edge cases like "mu,bu,nu" with same endings.
   for (const dictform of dictonaryForm){
-    let result = await lookupInDb(dictform, "kanjiIndex").catch((err) => { console.error(err) });
+    let result = await lookupInDb(dictform, dbIndex).catch((err) => { console.error(err) });
 
     if (result){
+      wordData = result;
+      wordData.forms = conjugationData.form;
       return wordData = result;
     } 
   }
-
-  // word must be ru verb.
+  // some verbs like 食べる will be matched to bu verb, this checks for such cases.
+  // likly that the conjugation name found is wrong/able to be determined. 
+  // some checks to try to correct these.
   const ruVerb = stem + "る";
-  let result = await lookupInDb(ruVerb, "kanjiIndex").catch((err) => { console.error(err) });
-
+  let result = await lookupInDb(ruVerb, dbIndex).catch((err) => { console.error(err) })
   if (result){
-    return wordData = result;
+    if (result.sense[0].partOfSpeech.includes("v1")){ // if ru verb, this is the passive form. else potential/passive is correct.
+      conjugationData.form[0] = "te-form";
+    }
+    wordData = result;
+    wordData.forms = conjugationData.form
+    return wordData;
   }
 
   // cant find conjugation.
   console.log("couldnt find word!");
   return wordData = null;
   
+}
+
+function identifyVerb(stem){
+  let dictonaryForm = []; // some verbs have same ending, can result in up to 3 possiable endings
+
+  const endHiragana = stem.slice(-1);
+  const hiraganaRE = /[ぁ-ゟ]/
+  const isHiragana = hiraganaRE.test(endHiragana);
+  let removeTrailGana = 0;
+
+  if (isHiragana) {
+    removeTrailGana += 1;
+  }
+
+  switch(endHiragana) {
+    case "わ":
+    case "い":
+    case "え":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "う");
+      break;
+    case "た":
+    case "ち":  
+    case "て": 
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "つ");
+      break;
+    case "ら":
+    case "り":
+    case "れ":   
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "る");
+      break;
+    case "ば":
+    case "び":
+    case "べ":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "ぶ");
+      break;
+    case "ま":
+    case "み":
+    case "べ":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "む");
+      break;
+    case "か":
+    case "き":
+    case "け":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana)+ "く");
+      break;
+    case "が":
+    case "ぎ":
+    case "げ":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "ぐ");
+      break;
+    case "さ":
+    case "し":
+    case "せ":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "す");
+      break;
+    case "な":
+    case "に":
+    case "ね":
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "ぬ");
+      break;
+    default:
+      dictonaryForm.push(stem.substring(0, stem.length - removeTrailGana) + "る");
+      break;
+  } 
+
+  return dictonaryForm;
 }
 
 // returns map: wordclass: string, form: array, stem: string
@@ -209,7 +286,7 @@ function findConjugations(word){
   const endInflectionInfo = endInflection[word.substring(word.length - 1)]; 
 
   if (endInflectionInfo) {
-    console.log("found inflection:", endInflectionInfo);   
+    console.log("found end inflection:", endInflectionInfo);   
     conjugationData.form.push(endInflectionInfo[0]);
     conjugationData.wordClass = endInflectionInfo[1];
     conjugationData.stem = word;
@@ -261,88 +338,29 @@ function findConjugations(word){
   return conjugationData;  
 }
 
-function identifyVerb(wordclass, form, stem){
-  let dictonaryForm = []; // some verbs have same ending, can result in up to 3 possiable endings
-
-  const endHiragana = stem.slice(-1);
-
-  switch(endHiragana) {
-    case "わ":
-    case "い":
-    case "え":
-      dictonaryForm.push(stem.substring(-1, 1) + "う");
-      break;
-    case "た":
-    case "ち":  
-    case "て": 
-      dictonaryForm.push(stem.substring(-1, 1) + "つ");
-      break;
-    case "ら":
-    case "り":
-    case "れ":     
-      dictonaryForm.push(stem.substring(-1, 1) + "る");
-      break;
-    case "ば":
-    case "び":
-    case "べ":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぶ");
-      break;
-    case "ま":
-    case "み":
-    case "べ":
-      dictonaryForm.push(stem.substring(-1, 1) + "む");
-      break;
-    case "か":
-    case "き":
-    case "け":
-      dictonaryForm.push(stem.substring(-1, 1) + "く");
-      break;
-    case "が":
-    case "ぎ":
-    case "げ":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぐ");
-      break;
-    case "さ":
-    case "し":
-    case "せ":
-      dictonaryForm.push(stem.substring(-1, 1) + "す");
-      break;
-    case "な":
-    case "に":
-    case "ね":
-      dictonaryForm.push(stem.substring(-1, 1) + "ぬ");
-      break;
-    default:
-      dictonaryForm.push(stem + "る");
-      break;
-  } 
-
-  return dictonaryForm;
-}
-
 // inflections that doesnt have any more conjugations.
 const endInflection = {
   "な" : ["imperative negative", "verb-done"], // negative from with na removed is dictonary form
-  "ろ" : ["imperative", "verb ichidan"], 
-  "せ" : ["imperative", "verb"], 
-  "け" : ["imperative", "verb"], 
-  "げ" : ["imperative", "verb"], 
-  "め" : ["imperative", "verb"], 
-  "べ" : ["imperative", "verb"], 
-  "ね" : ["imperative", "verb"], 
-  "え" : ["imperative", "verb"], 
-  "れ" : ["imperative", "verb"], 
+  "ろ" : ["imperative", "ichidan"], 
+  "せ" : ["imperative", "verb su"], 
+  "け" : ["imperative", "verb ku"], 
+  "げ" : ["imperative", "verb gu"], 
+  "め" : ["imperative", "verb mu"], 
+  "べ" : ["imperative", "verb bu"], 
+  "ね" : ["imperative", "verb nu"], 
+  "え" : ["imperative", "verb u"], 
+  "れ" : ["imperative", "verb ru"], 
   "さ" : ["objective-form", "i-adj"], 
   "く" : ["adverbial", "i-adj"], 
   "に" : ["adverbial", "na-adj"], 
 };
 
 const inflections = {
-  /////  verbs /////  
+  ///// ambigous endings (can be ichidan or godan) /////  
   "ない" : ["negative", "verb"],
   "ます" : ["polite", "verb"],
   "ません" : ["polite negative", "verb"],
-  "た" : ["past", "verb"], 
+  "た" : ["past", "verb"],
   "なかった" : ["past negative", "verb"],
   "ました" : ["polite past", "verb"],
   "ませんでした" : ["polite past negative", "verb"],
@@ -351,18 +369,19 @@ const inflections = {
   "たら" : ["tara-form", "verb"],
   "なかったら" : ["tara-form negative", "verb"],
   "なくて" : ["te-form negative", "verb"],
-  ////// ichidan  only ///// 
-  "て" : ["te-form", "verb ichidan"], /// te issue  // clashes with te form. needs additional check. /// ichidan te form and tsu verb clash
-  "られる" : ["potential/passive", "verb ichidan"], 
-  "られ" : ["potential/passive", "verb ichidan"], 
-  "られない": ["potential/passive negative", "verb ichidan"], 
-  "させる" : ["causative", "verb ichidan"], // 話す problem
-  "させ" : ["causative", "verb ichidan"],
-  "させない": ["causative-passive", "verb ichidan"], 
-  "させられる": ["causative-passive", "verb ichidan"], // 話す
-  "させられない": ["causative-passive negative", "verb ichidan"], 
-  "させられ": ["causative-passive", "verb ichidan"], // 話す
+  "られる" : ["potential/passive", "verb"], // ru verb and ichidan
+  "られない": ["potential/passive negative", "verb"], 
+  "られなかった" : ["potential/passive negative past", "verb"], 
+  "られ" : ["potential/passive", "verb"], //
+  "て" : ["imperative", "verb tsu"], // can also be ichidan in te form, correct conjugation form after.
+  "させる" : ["causative", "verb ichidan,su"], // ichidan or su verb, only stem remains in these conjugations.
+  "させない" : ["causative negative", "verb ichidan,su"], 
+  "させられる": ["causative-passive", "verb ichidan,su"], 
+  "させられない": ["causative-passive negative", "verb ichidan,su"], 
   ////// godan only /////
+  "たない" : ["negative", "verb tsu"],
+  "たなかった" : ["past negative", "verb tsu"],
+  "たなくて" : ["te-form negative", "verb tsu"],
   "した" : ["past", "verb su"], 
   "いた" : ["past", "verb ku"], 
   "いだ" : ["past", "verb gu"], 
@@ -373,34 +392,72 @@ const inflections = {
   "いで" : ["te-form", "verb gu"], 
   "んで" : ["te-form", "verb mu,bu,nu"],
   "って" : ["te-form", "verb u,ru,tsu"], 
-
-  "れる" : ["potential", "verb"], 
-  "せない" : ["potential negative", "verb su"], // 話す
-  "ける" : ["potential", "verb ku"], 
-  "けない" : ["potential negative", "verb ku"], 
-  "げる" : ["potential", "verb gu"],
-  "げない" : ["potential negative", "verb gu"], 
-  "める" : ["potential", "verb mu"],
-  "めない" : ["potential negative", "verb mu"], 
-  "べる" : ["potential", "verb bu"],
-  "べない" : ["potential negative", "verb bu"], 
-  "ねる" : ["potential", "verb nu"], 
-  "ねない" : ["potential negative", "verb nu"],
-  "える" : ["potential", "verb u"], 
-  "えない" : ["potential negative", "verb u"],
-  //"れる" : ["potential", "verb ru"], 
-  //"れない" : ["potential", "verb ichidan"], // can be ru verb, but needs same ending.
-  "てる" : ["potential", "verb tsu"],
-  "てない" : ["potential negative", "verb tsu"],
-
-  "れない" : ["passive negative", "verb"], // 走れない still problems with ru verbs // fix after match is found? 
-  "せる" : ["causative", "verb"], 
-  "せない" : ["causative negative", "verb"], // させな ?
-  "せられる" : ["causative passive", "verb"], 
-  "せられ" : ["causative passive", "verb"], 
-  "せられない" : ["causative passive negative", "verb"], 
-  //"て" : ["imperative", "verb"], // clashes with te form. needs additional check. /// ichidan te form and tsu verb clash
-
+  // hard coded. 
+  // the matching is too small if only け for example is used.
+  // leading to alot of false positives.
+  "ける": ["potential", "verb ku"],
+  "けない": ["potential negative", "verb ku"],
+  "げる": ["potential", "verb gu"],
+  "げない": ["potential negative", "verb gu"],
+  "める": ["potential", "verb mu"],
+  "めない": ["potential negative", "verb mu"],
+  "べる": ["potential", "verb bu"],
+  "べない": ["potential negative", "verb bu"],
+  "ねる": ["potential", "verb nu"],
+  "ねない": ["potential negative", "verb nu"],
+  "える": ["potential", "verb u"],
+  "えない": ["potential negative", "verb u"],
+  "てる": ["potential", "verb tsu"],
+  "てない": ["potential negative", "verb tsu"],
+  "れる": ["potential", "verb ru"],
+  "れない": ["potential/passive negative", "verb"], 
+  //
+  "かれる": ["passive", "verb ku"],
+  "かれ": ["passive", "verb ku"],
+  "がれる": ["passive", "verb gu"],
+  "がれ": ["passive", "verb gu"],
+  "まれる": ["passive", "verb mu"],
+  "まれ": ["passive", "verb mu"],
+  "ばれる": ["passive", "verb bu"],
+  "ばれ": ["passive", "verb bu"],
+  "なれる": ["passive", "verb nu"],
+  "なれ": ["passive", "verb nu"],
+  "われる": ["passive", "verb u"],
+  "われ": ["passive", "verb u"],
+  "たれる": ["passive", "verb tsu"],
+  "たれ": ["passive", "verb tsu"],
+  "かせる": ["causative", "verb ku"],
+  "かせ": ["causative", "verb ku"],
+  "がせる": ["causative", "verb gu"],
+  "がせ": ["causative", "verb gu"],
+  "ませる": ["causative", "verb mu"],
+  "ませ": ["causative", "verb mu"],
+  "ばせる": ["causative", "verb bu"],
+  "ばせ": ["causative", "verb bu"],
+  "なせる": ["causative", "verb nu"],
+  "なせ": ["causative", "verb nu"],
+  "わせる": ["causative", "verb u"],
+  "わせ": ["causative", "verb u"],
+  "たせる": ["causative", "verb tsu"],
+  "たせ": ["causative", "verb tsu"],
+  "らせる": ["causative", "verb ru"],
+  "らせ": ["causative", "verb ru"],
+  "かせられる": ["causative-passive", "verb ku"],
+  "かせられ": ["causative-passive", "verb ku"],
+  "がせられる": ["causative-passive", "verb gu"],
+  "がせられ": ["causative-passive", "verb gu"],
+  "ませられる": ["causative-passive", "verb mu"],
+  "ませられ": ["causative-passive", "verb mu"],
+  "ばせられる": ["causative-passive", "verb bu"],
+  "ばせられ": ["causative-passive", "verb bu"],
+  "なせられる": ["causative-passive", "verb nu"],
+  "なせられ": ["causative-passive", "verb nu"],
+  "わせられる": ["causative-passive", "verb u"],
+  "わせられ": ["causative-passive", "verb u"],
+  "たせられる": ["causative-passive", "verb tsu"],
+  "たせられ": ["causative-passive", "verb tsu"],
+  "らせられる": ["causative-passive", "verb ru"],
+  "らせられ": ["causative-passive", "verb ru"],
   ////// i-adjective only /////  
   "くない" : ["negative", "i-adj"],
   "かった" : ["past", "i-adj"],
@@ -442,7 +499,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           return wordData = result;
         } else {
           // optimistic search failed word has a conjugation.
-          return findDictonaryForm(word);
+          return findDictonaryForm(word, "kanjiIndex");
         }
       } else {
         let result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });;
@@ -451,7 +508,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           return wordData = result;
         } else {
           // optimistic search failed word has a conjugation.
-          return findDictonaryForm(word);
+          return findDictonaryForm(word, "readingIndex");
         }
       }
     case "getData":
