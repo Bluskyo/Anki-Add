@@ -484,7 +484,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   switch(message.action){
     case "saveSelection":
       savedInfo.set("selectedText", message.text);
-      savedInfo.set("sentence", ""); // clears sentence from previous sentence.
+      savedInfo.set("sentence", message.sentence); // clears sentence from previous sentence.
       savedInfo.set("savedURL", message.url);
 
       const word = message.text;

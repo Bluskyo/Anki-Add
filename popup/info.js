@@ -291,6 +291,10 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             useReading = true;
             document.getElementById("kana-reading").checked = true;
         }
+
+        // displays sentence from where word was highligted.
+        document.getElementById("sentence").value = response[1].get("sentence");
+
     } else {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
             const word = response.get("selectedText");
