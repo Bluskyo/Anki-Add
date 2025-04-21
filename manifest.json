@@ -20,6 +20,16 @@
   ],
   "permissions": ["activeTab", "storage", "tabs"],
   "background": { "scripts": ["background.js"], "persistent": true },
-  "web_accessible_resources": ["data/jmdict-eng-3.6.1.json"]
+  "web_accessible_resources": ["data/jmdict-eng-3.6.1.json"],
+
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Q"
+      }
+    }
+  }
+
+
 
 }

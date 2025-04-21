@@ -50,6 +50,10 @@ p {
   color: white;
 }
 
+a {
+  color: white;
+}
+
 .word-info {
   max-width: fit-content;
   position: center;

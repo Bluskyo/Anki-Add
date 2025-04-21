@@ -63,7 +63,7 @@ async function createNoteType() {
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n  word-wrap: break-word;\n}\n.card.night_mode {\n  font-size: 24px;\n  --text-color: white;\n  word-wrap: break-word;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
+            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
             "isCloze": false,
             "cardTemplates": [
                 {
@@ -256,10 +256,27 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     // response = [wordData, savedInfo]
     if (response[0]) {
-        document.getElementById("selected-text").innerHTML = `<p class=kanji>`+ response[0].kanji.join(", ") + `</p>`;
+        document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
+
+        // display of each conjugation found along with links to said conjugation.
+        const conjugationElement = document.getElementById("conjugation");
         if (response[0].forms) {
-            document.getElementById("conjugation").innerHTML = response[1].get("selectedText") + " > " + response[0].forms;
+            conjugationElement.innerHTML = response[1].get("selectedText") + " > ";
+            for (const form of response[0].forms) {
+                if (form.includes(" ")){
+                    console.log(form.split(" "))
+                    for (let element of form.split(" ")){
+                        const link = conjugationLinks[element];
+                        conjugationElement.innerHTML += `<a href="${link}">${element}</a> `;
+                    }
+                } else {
+                    const link = conjugationLinks[form];
+                    conjugationElement.innerHTML += `<a href="${link}">${form}</a> `;
+                }
+
+            }
         }
+        
         document.getElementById("reading").innerHTML = `<p class=readings>` + response[0].kana.join(", ") + `</p>`;
 
         let meaning = `<ol>`;
@@ -302,7 +319,10 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
                 document.getElementById("reading").innerHTML = `Could not find "${word}" in dictonary!`;
 
             } else {
-                document.getElementById("reading").innerHTML = "Select a word to look up!";
+                document.getElementById("reading").innerHTML = 
+                `Select a word to look up!<br>` +
+                `(ctrl + highlight) to look up a word)<br>` + 
+                `(ctrl + Q to open popup window)`;
             }
         });
 
@@ -576,4 +596,25 @@ const tagsDict = {
     "ksb":"Kansai-ben",
     "pn":"pronoun",
     "gikun":"gikun (meaning as reading) or jukujikun (special kanji reading)"
+};
+
+const conjugationLinks = {
+    "past":"https://www.tofugu.com/japanese-grammar/verb-past-ta-form/",
+    "negative":"https://www.tofugu.com/japanese-grammar/verb-negative-nai-form/",
+    "polite":"https://www.tofugu.com/japanese-grammar/masu/",
+    "て-form":"https://www.tofugu.com/japanese-grammar/te-form/",
+    "continuous":"https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/",
+    "potential":"https://www.tofugu.com/japanese-grammar/verb-potential-form-reru/",
+    "passive":"https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/",
+    "causative":"https://www.tofugu.com/japanese-grammar/verb-causative-form-saseru/",
+    "passive-causative":"https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/",
+    "imperative":"https://www.tofugu.com/japanese-grammar/verb-command-form-ro/",
+    "volitional":"https://bunpro.jp/grammar_points/causative-passive",
+    "たら-conditional":"https://www.tofugu.com/japanese-grammar/conditional-form-tara/",
+    "ば-conditional":"https://www.tofugu.com/japanese-grammar/verb-conditional-form-ba/",
+    "ければ-conditional":"https://www.tofugu.com/japanese-grammar/i-adjective-conditional-form-kereba/",
+    "ず-form":"https://www.gokugoku.app/japanese-grammar/zu-%E3%81%9A-japanese-grammar",
+    "たい-form":"https://www.tofugu.com/japanese-grammar/tai-form/",
+    "noun-form":"https://www.tofugu.com/japanese-grammar/adjective-suffix-sa/",
+    "adverbial":"https://www.gokugoku.app/japanese-grammar/zu-%E3%81%9A-japanese-grammar"
 };

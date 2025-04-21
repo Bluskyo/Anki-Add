@@ -6,7 +6,7 @@ document.addEventListener("mouseup", (e) => {
         let selection = document.getSelection();
         let selectedText = selection.toString().trim();
         let containsJP = japaneseRE.test(selectedText);
-    
+
         const currentElement = document.activeElement;
         const currentLocation = window.location.href;
     
