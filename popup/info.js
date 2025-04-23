@@ -27,12 +27,12 @@ function invoke(action, version, params={}) {
         xhr.open('POST', 'http://127.0.0.1:8765');
         xhr.send(JSON.stringify({action, version, params}));
     }).catch((error) => {
-        console.error("Error fetching selectedDeck:", error);
-    })
+        throw error;
+    }) 
 }
 
 // adds the note to anki deck.
-async function makeNote(){
+async function addNote(){
     const models = await invoke('modelNames', 6);
 
     if (!models.includes("AnkiAdd")){
@@ -40,45 +40,7 @@ async function makeNote(){
         createNoteType();
     }
 
-    const addingNote = await addNote();
-
-    if (addingNote !== null) {
-        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
-            if (response) {
-                document.getElementById("status-message").textContent = `Added "${response.get("selectedText")}" to "${response.get("savedDeck")}".😊`;
-            }
-        }).catch(error => console.error("Error creating card!:", error));
-    } else {
-        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
-            if (response) {
-                document.getElementById("status-message").textContent = `Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
-            }
-        });
-    }
-
-}
-
-async function createNoteType() {
-    return await invoke('createModel', 6, 
-        {
-            "modelName": "AnkiAdd",
-            "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
-            "isCloze": false,
-            "cardTemplates": [
-                {
-                    "Name": "Japanese",
-                    "Front": "<div class=small>{{hint:Furigana}}</div>\n<div class=big>{{Word}}</div>\n<div class=small>{{hint:Sentence}}</div>",
-                    "Back": "<script>\nfunction isAndroid() {\n  return /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\n  document.body.classList.add(\"android\");\n} else {\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  {{Meaning}}\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  <div class=definition>{{Meaning}}</div>\n</div>\n<script>\n  if (isAndroid()) {\n    document.querySelector(\".android-only\").style.display = \"block\";\n  } else {\n    document.querySelector(\".desktop-only\").style.display = \"block\";\n  }\n</script>\n<center>{{Pronunciation}}</center>"
-                }
-            ]
-        }
-    )
-}
-// creates card and adds it to anki.
-// needs error handling.
-async function addNote() {
-    browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
+    browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
         if (response) {
             const wordData = response[0];
             let word = wordData.kanji[0];
@@ -116,45 +78,76 @@ async function addNote() {
             
             // adds all info to anki note.
             if (meaning.length > 0){
-                return invoke('addNote', 6, {
-                    "note": {
-                        "deckName": savedDeck, 
-                        "modelName": "AnkiAdd",
-                        "fields": {
-                            "Word": word, 
-                            "Sentence": sentence,
-                            "JMdictSeq": wordData.id, 
-                            "Furigana": furigana, 
-                            "Meaning": meaning,
-                            "From": savedUrl 
-                        },
-                        "tags": ["AnkiAdd", ankiTags],
-                        "options": { // duplication scope
-                            "allowDuplicate": false,
-                            "duplicateScope": "deck",
-                            "duplicateScopeOptions": 
-                            {
-                            "deckName": "Default", // savedDeck
-                            "checkChildren": false,
-                            "checkAllModels": false }
-                        },
-                        "audio": [{
-                            "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
-                            "filename": `ankiAdd_${word}_${furigana}.mp3`,
-                            "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-                            "fields": [
-                                "Pronunciation"
-                            ]
-                        }],
+                try {
+                    const result = await invoke('addNote', 6, {
+                        "note": {
+                            "deckName": savedDeck, 
+                            "modelName": "AnkiAdd",
+                            "fields": {
+                                "Word": word, 
+                                "Sentence": sentence,
+                                "JMdictSeq": wordData.id, 
+                                "Furigana": furigana, 
+                                "Meaning": meaning,
+                                "From": savedUrl 
+                            },
+                            "tags": ["AnkiAdd", ankiTags],
+                            "options": { // duplication scope
+                                "allowDuplicate": false,
+                                "duplicateScope": "deck",
+                                "duplicateScopeOptions": 
+                                {
+                                "deckName": savedDeck,
+                                "checkChildren": false,
+                                "checkAllModels": false }
+                            },
+                            "audio": [{
+                                "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
+                                "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                                "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                                "fields": [
+                                    "Pronunciation"
+                                ]
+                            }]
+                        }
+                    })
+
+                    if (result) {
+                        document.getElementById("status-message").textContent = `✅Added "${response[1].get("selectedText")}" to "${response[1].get("savedDeck")}".😊`
                     }
-                }).catch((error) => {
-                    console.error(error);
-                });
+
+                // errors from the ankiConnect API is just strings. checks if string contains different errors.
+                } catch (error){
+                    if (error.includes("duplicate")){  
+                        document.getElementById("status-message").textContent = `❗"${response[1].get("selectedText")}" is already in deck: ${response[1].get("savedDeck")}.`;
+                    } else {
+                        document.getElementById("status-message").textContent = `❗Could not add "${response.get("selectedText")}" to "${response.get("savedDeck")}."😔`;
+                    }
+                }
+
             }
 
         }
-    }).catch(error => console.error("Error retrieving data:", error));
 
+    })
+}
+
+async function createNoteType() {
+    return await invoke('createModel', 6, 
+        {
+            "modelName": "AnkiAdd",
+            "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
+            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
+            "isCloze": false,
+            "cardTemplates": [
+                {
+                    "Name": "Japanese",
+                    "Front": "<div class=small>{{hint:Furigana}}</div>\n<div class=big>{{Word}}</div>\n<div class=small>{{hint:Sentence}}</div>",
+                    "Back": "<script>\nfunction isAndroid() {\n  return /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\n  document.body.classList.add(\"android\");\n} else {\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  {{Meaning}}\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  <div class=definition>{{Meaning}}</div>\n</div>\n<script>\n  if (isAndroid()) {\n    document.querySelector(\".android-only\").style.display = \"block\";\n  } else {\n    document.querySelector(\".desktop-only\").style.display = \"block\";\n  }\n</script>\n<center>{{Pronunciation}}</center>"
+                }
+            ]
+        }
+    )
 }
 
 // prevents sentences that does not include the word from being added.
@@ -244,7 +237,11 @@ invoke('deckNames', 6).then((decks) => {
 
 // listens to add button on popup window.
 window.onload = () => {
-    document.getElementById("add-button").addEventListener("click", makeNote);
+    document.getElementById("add-button").addEventListener("click", addNote);
+    document.getElementById("note-form").addEventListener("submit", (e) => {
+        e.preventDefault(); // stop text from being cleared
+        addNote();
+    });
     document.getElementById("sentence").addEventListener("input", getSentence);
     document.getElementById("kana-reading").addEventListener("change", handleChange); // reverses bool for using kana reading
 }
@@ -264,7 +261,6 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             conjugationElement.innerHTML = response[1].get("selectedText") + " > ";
             for (const form of response[0].forms) {
                 if (form.includes(" ")){
-                    console.log(form.split(" "))
                     for (let element of form.split(" ")){
                         const link = conjugationLinks[element];
                         conjugationElement.innerHTML += `<a href="${link}">${element}</a> `;
@@ -322,7 +318,7 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
                 document.getElementById("reading").innerHTML = 
                 `Select a word to look up!<br>` +
                 `(ctrl + highlight) to look up a word)<br>` + 
-                `(ctrl + Q to open popup window)`;
+                `(ctrl + Q) to open popup window)`;
             }
         });
 

@@ -28,10 +28,11 @@ document.addEventListener("mouseup", (e) => {
             }
         } else if (selectedText.length <= 10 && containsJP) {
             const textNode = selection.focusNode.parentNode.innerText;
-    
-            // matches everything the not in [。] after that counts every proceeding match devided by "。"
+
+            // matches everything the not in [。] after that counts every proceeding match devided by "。".
             let sentence = "";
-            const match = textNode.match(/[^。]*。/g); 
+            const match = textNode.match(/[^。]*。?/g); 
+            
             if (match){
                 sentence = match.find(str => str.includes(selection)) || "";
             }

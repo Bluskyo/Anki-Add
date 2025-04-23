@@ -188,15 +188,13 @@ async function findDictonaryForm(word, dbIndex){
       return wordData = result;
     } 
   }
+  
   // some verbs like 食べる will be matched to bu verb, this checks for such cases.
   // likly that the conjugation name found is wrong/able to be determined. 
   // some checks to try to correct these.
   const ruVerb = stem + "る";
   let result = await lookupInDb(ruVerb, dbIndex).catch((err) => { console.error(err) })
   if (result){
-    if (result.sense[0].partOfSpeech.includes("v1")){ // if ru verb, this is the passive form. else potential/passive is correct.
-      conjugationData.form[0] = "te-form";
-    }
     wordData = result;
     wordData.forms = conjugationData.form
     return wordData;
@@ -466,14 +464,14 @@ const inflections = {
   "たせられ": ["causative-passive", "verb tsu"],
   "らせられる": ["causative-passive", "verb ru"],
   "らせられ": ["causative-passive", "verb ru"],
-  "こう": ["potential", "verb ku"],
-  "ごう": ["potential", "verb gu"],
-  "もう": ["potential", "verb mu"],
-  "ぼう": ["potential", "verb bu"],
-  "のう": ["potential", "verb nu"],
-  "おう": ["potential", "verb u"],
-  "とう": ["potential", "verb tsu"],
-  "ろう": ["potential", "verb ru"],
+  "こう": ["volitional", "verb ku"],
+  "ごう": ["volitional", "verb gu"],
+  "もう": ["volitional", "verb mu"],
+  "ぼう": ["volitional", "verb bu"],
+  "のう": ["volitional", "verb nu"],
+  "おう": ["volitional", "verb u"],
+  "とう": ["volitional", "verb tsu"],
+  "ろう": ["volitional", "verb ru"],
   ////// i-adjective only /////
   "くない" : ["negative", "i-adj"],
   "かった" : ["past", "i-adj"],
