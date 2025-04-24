@@ -137,7 +137,7 @@ async function createNoteType() {
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n  font-size: 25px;\n  --text-color: black;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
+            "css": ".card {\n   font-size: 25px;\n  --text-color: black;\n  font-family: Zen Old Mincho, serif;\n   font-weight: 400;\n}font-style: normal;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
             "isCloze": false,
             "cardTemplates": [
                 {
@@ -612,5 +612,6 @@ const conjugationLinks = {
     "ず-form":"https://www.gokugoku.app/japanese-grammar/zu-%E3%81%9A-japanese-grammar",
     "たい-form":"https://www.tofugu.com/japanese-grammar/tai-form/",
     "noun-form":"https://www.tofugu.com/japanese-grammar/adjective-suffix-sa/",
-    "adverbial":"https://www.gokugoku.app/japanese-grammar/zu-%E3%81%9A-japanese-grammar"
+    "adverbial":"https://www.gokugoku.app/japanese-grammar/zu-%E3%81%9A-japanese-grammar",
+    "てしまう-form":"https://jlptsensei.com/learn-japanese-grammar/%E3%81%A6%E3%81%97%E3%81%BE%E3%81%86-te-shimau-%E3%81%A1%E3%82%83%E3%81%86-meaning/#examples"
 };

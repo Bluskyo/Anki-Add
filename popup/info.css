@@ -37,6 +37,11 @@ button:hover {
   background-color: #007712;
 }
 
+button:active {
+  box-shadow: 0 5px #666;
+  transform: translateY(4px);
+}
+
 hr.line {
   border-top: 1px solid white;
 }

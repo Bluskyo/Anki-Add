@@ -384,6 +384,11 @@ const inflections = {
   "てる": ["continuous", "verb"],
   "てた": ["continuous", "verb"],
   "ましょう" : ["volitional polite", "verb"],
+  "しまう" : ["てしまう-form", "verb"],
+  "しまいます" : ["てしまう-form polite", "verb"],
+  "しまった" : ["てしまう-form past", "verb"],
+  "ちゃう" : ["てしまう-form", "verb"],
+  "ちゃった" : ["てしまう-form past", "verb"],
   ////// godan only /////
   "たない" : ["negative", "verb tsu"],
   "たなかった" : ["past negative", "verb tsu"],
