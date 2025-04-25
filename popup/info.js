@@ -32,7 +32,7 @@ function invoke(action, version, params={}) {
 }
 
 // adds the note to anki deck.
-async function addNote(){
+async function addNote() {
     const models = await invoke('modelNames', 6);
 
     if (!models.includes("AnkiAdd")){
@@ -46,9 +46,9 @@ async function addNote(){
             let word = wordData.kanji[0];
             const furigana = wordData.kana[0];
             const meaning = document.getElementById("description").innerHTML;  
-            const savedInfo = response[1];  
-            const savedUrl = savedInfo.get("savedURL");
-            const savedDeck = savedInfo.get("savedDeck")
+            const ankiData = response[1];  
+            const savedUrl = ankiData.savedURL;
+            const savedDeck = ankiData.savedDeck;
 
             // formatting for tags in anki
             let allTags = [];
@@ -61,7 +61,7 @@ async function addNote(){
             const ankiTags = ankiFormat.replace(/,/g, " ");  
 
             // marking word in example sentence logic:
-            let sentence = savedInfo.get("sentence"); 
+            let sentence = ankiData.sentence; 
             if (useReading){ // for highlighting word in anki
                 word = furigana; // uses reading instead of kanji.
             } 
@@ -71,7 +71,7 @@ async function addNote(){
                 const regex = new RegExp(word, "g"); 
                 sentence = sentence.replace(regex, `<mark>${word}</mark>`);
             } else {
-                const selectedText = savedInfo.get("selectedText")
+                const selectedText = ankiData.selectedText;
                 const regex = new RegExp(selectedText, "g"); 
                 sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
             }
@@ -113,15 +113,15 @@ async function addNote(){
                     })
 
                     if (result) {
-                        document.getElementById("status-message").textContent = `✅Added "${response[1].get("selectedText")}" to "${response[1].get("savedDeck")}".😊`
+                        document.getElementById("status-message").textContent = `✅Added "${response[1].selectedText}" to "${response[1].savedDeck}".😊`
                     }
 
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
-                        document.getElementById("status-message").textContent = `❗"${response[1].get("selectedText")}" is already in deck: ${response[1].get("savedDeck")}.`;
+                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: ${response[1].savedDeck}.`;
                     } else {
-                        document.getElementById("status-message").textContent = `❗Could not add "${response.get("selectedText")}" to "${response.get("savedDeck")}."😔`;
+                        document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
                     }
                 }
 
@@ -151,7 +151,7 @@ async function createNoteType() {
 }
 
 // prevents sentences that does not include the word from being added.
-function getSentence(){
+function getSentence() {
     const entry = document.getElementById("selected-text").textContent.split(",")[0]; // word found in dict
     const selectedWord = document.getElementById("conjugation").textContent.split(" > ")[0]; // word selected by user. (can have conjugations)
     const reading = document.getElementById("reading").textContent.split(",")[0];
@@ -173,7 +173,7 @@ function getSentence(){
     } else document.getElementById("add-button").disabled = true; 
 }
 
-function handleChange(){
+function handleChange() {
     useReading = !useReading;
     getSentence(); // updates sentence for checking input field.
 }
@@ -191,7 +191,7 @@ invoke('deckNames', 6).then((decks) => {
             ankiDecksDropdDown.appendChild(option);
         } else { 
             browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
-                const selectedDeck = response.get("savedDeck");
+                const selectedDeck = response.savedDeck;
 
                 // if other decks are present skips the default deck.
                 if(decks.length > 1){
@@ -251,14 +251,14 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 // looksup selected word and displays info in popup. 
 // displays saved info about word.
 browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
-    // response = [wordData, savedInfo]
+    // response = [wordData, ankiData]
     if (response[0]) {
         document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
 
         // display of each conjugation found along with links to said conjugation.
         const conjugationElement = document.getElementById("conjugation");
         if (response[0].forms) {
-            conjugationElement.innerHTML = response[1].get("selectedText") + " > ";
+            conjugationElement.innerHTML = response[1].selectedText + " > ";
             for (const form of response[0].forms) {
                 if (form.includes(" ")){
                     for (let element of form.split(" ")){
@@ -306,20 +306,26 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
         }
 
         // displays sentence from where word was highligted.
-        document.getElementById("sentence").value = response[1].get("sentence");
+        document.getElementById("sentence").value = response[1].sentence;
 
     } else {
-        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(response => {
-            const word = response.get("selectedText");
-            if (word){
-                document.getElementById("reading").innerHTML = `Could not find "${word}" in dictonary!`;
+        browser.runtime.sendMessage({ action: "getSavedInfo"}).then(async ankiData => {
+            const dbStatus = await browser.runtime.sendMessage({ action: "dbStatus"});
 
+            if (dbStatus) {
+                const word = ankiData.selectedText;
+                if (word){
+                    document.getElementById("reading").innerHTML = `Could not find "${word}" in dictonary!`;
+                } else {
+                    document.getElementById("reading").innerHTML = 
+                    `Select a word to look up!<br>` +
+                    `(ctrl + highlight) to look up a word)<br>` + 
+                    `(ctrl + Q) to open popup window)`;
+                }
             } else {
-                document.getElementById("reading").innerHTML = 
-                `Select a word to look up!<br>` +
-                `(ctrl + highlight) to look up a word)<br>` + 
-                `(ctrl + Q) to open popup window)`;
+                document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 30 seconds.) `
             }
+
         });
 
     }

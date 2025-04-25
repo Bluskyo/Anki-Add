@@ -11,7 +11,7 @@ document.addEventListener("mouseup", (e) => {
         const currentLocation = window.location.href;
     
         // checks input tag, getselection cant read these.
-        if (selectedText == "" && currentElement.tagName === "TEXTAREA" || currentElement.tagName === "INPUT"){  
+        if (selectedText == "" && currentElement.tagName === "TEXTAREA" || currentElement.tagName === "INPUT") {  
             const selectionStart = currentElement.selectionStart;
             const selectionEnd = currentElement.selectionEnd;
     

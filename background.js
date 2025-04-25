@@ -2,83 +2,7 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
-// innit
-function openDb() {
-  return new Promise((resolve, reject) => {
-    console.log("openDb ...");
-    
-    var req = indexedDB.open(dbName, dbVersion);
-
-    req.onsuccess = function (evt) {
-      console.log("openDb DONE");
-      db = req.result;
-      resolve(db);
-    };
-
-    req.onerror = function (evt) {
-      console.error("openDb:", evt.target.errorCode);
-      reject(evt.target.errorCode);
-    };
-
-    // innit db if needed.
-    req.onupgradeneeded = function (evt) {
-      console.log("openDb.onupgradeneeded");
-
-      var store = evt.currentTarget.result.createObjectStore(
-        "JMDict", { keyPath: 'id', autoIncrement: false }
-      );
-
-      store.createIndex("kanjiIndex", "kanji", { unique: false, multiEntry: true });
-      store.createIndex("readingIndex", "kana", { unique: false, multiEntry: true });
-      store.createIndex('meaningIndex', 'sense', { unique: false, multiEntry: true });
-
-      const db = evt.target.result;
-
-      console.log("Reading dictfile...");
-
-      fetch("data/jmdict-eng-3.6.1.json")
-      .then(response => response.json())
-      .then(json => {
-        addDataToDb(db, json.words);
-      });
-
-    }
-  
-  });
-}
-
-function addDataToDb(db, json){
- const transaction = db.transaction(["JMDict"], "readwrite");
- const store = transaction.objectStore("JMDict");
-
- transaction.oncomplete = (evt) => {
-  console.timeEnd('Execution Time'); // timer end 
-  console.log("Everything is added to indexedDB!");
- };
-
- transaction.onerror = (evt) => {
-  console.log("Something went wrong!");
- };
-
- console.time('Execution Time'); // timer start
-  json.forEach(word => {
-
-    const wordEntry = {
-      id: word.id, // Use existing ID
-      kanji: word.kanji.map(entry => entry.text), 
-      kanjiCommon: word.kanji.map(entry => entry.common), 
-      kana: word.kana.map(entry => entry.text),  
-      kanaCommon: word.kana.map(entry => entry.common),   
-      sense: word.sense.map(entry => entry)
-    };
-
-    store.add(wordEntry); // id is automatically chosen as id.
-  })
-
-}
-// ----
-
-async function lookupInDb(word, index){
+function lookupInDb(word, index) {
   return new Promise((resolve, reject) => {  
     console.log("looking up word:", word);
   
@@ -108,7 +32,7 @@ async function lookupInDb(word, index){
 
 }
 
-async function findDictonaryForm(word, dbIndex){
+async function findDictonaryForm(word, dbIndex) {
   const conjugationData = findConjugations(word);
   const wordClass = conjugationData.wordClass; // i-adj/na-adj/ichidan/godan
   const stem = conjugationData.stem;
@@ -206,7 +130,7 @@ async function findDictonaryForm(word, dbIndex){
   
 }
 
-function identifyVerb(stem){
+function identifyVerb(stem) {
   let dictonaryForm = []; // some verbs have same ending, can result in up to 3 possiable endings
 
   const endHiragana = stem.slice(-1);
@@ -273,7 +197,7 @@ function identifyVerb(stem){
 }
 
 // returns map: wordclass: string, form: array, stem: string
-function findConjugations(word){
+function findConjugations(word) {
   let conjugationData = {
     wordClass : "",
     form: [],
@@ -494,17 +418,15 @@ const inflections = {
   "じゃなかった" : ["negative past", "na-adj"]
 };
 
-let wordData;
-const savedInfo = new Map();
-
-openDb();
+let wordData = null;
+let ankiData = {};
 
 browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   switch(message.action){
     case "saveSelection":
-      savedInfo.set("selectedText", message.text);
-      savedInfo.set("sentence", message.sentence); // clears sentence from previous sentence.
-      savedInfo.set("savedURL", message.url);
+      ankiData.selectedText = message.text;
+      ankiData.sentence = message.sentence; // clears sentence from previous sentence.
+      ankiData.savedURL = message.url;
 
       const word = message.text;
       const kanjiRe = /[一-龯]/;
@@ -533,16 +455,51 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     case "getData":
       return wordData;
     case "getSavedInfo":
-      return savedInfo;
+      return ankiData;
     case "getAllData":
-      return [wordData, savedInfo];
+      return [wordData, ankiData];
     case "saveSentence":
-      savedInfo.set("sentence", message.text);
+      ankiData.sentence = message.text;
       return true;
     case "saveDeck":
-      savedInfo.set("savedDeck", message.text);
+      ankiData.savedDeck =  message.text;
       return true;
+    case "dbStatus":
+      return dbIsPopulated;
   }
 
   return true; // keeps the response channel open for async func
 });
+
+let dbIsPopulated = false; 
+const JMdictWorker = new Worker("innitDBWorker.js");
+
+JMdictWorker.postMessage("start");
+JMdictWorker.onmessage = function(message) {
+  if (message.data == "done") {
+    dbIsPopulated = true;
+    openDB();
+  }
+}
+
+function openDB() {
+  console.log("openDB ...");
+  
+  var req = indexedDB.open(dbName, dbVersion);
+
+  req.onsuccess = function (evt) {
+    console.log("openDB DONE");
+    db = req.result;
+  };
+
+  req.onerror = function (evt) {
+    console.error("openDB:", evt.target.errorCode);
+    reject(evt.target.errorCode);
+  };
+
+  // innit db if needed.
+  req.onupgradeneeded = function (evt) {
+    console.error("openDB.onupgradeneeded hit in background script!");
+  }
+
+};
