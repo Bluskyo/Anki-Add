@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*", "file:///*"],
-      "js": ["ankiAdd.js"]
+      "js": ["highlightWord.js"]
     }
   ],
   "permissions": ["activeTab", "storage", "tabs"],
