@@ -8,6 +8,7 @@ Firefox extension for quickly adding words to anki
 
 ## Sources📄
 <ul>
-  <li> Japanese dictionary used: <a href="https://www.edrdg.org/jmdict/j_jmdict.html">JMdict</a></li>
-  <li> <a href="https://github.com/scriptin/jmdict-simplified">jmdict-simplified</a> jmdict in JSON format for easier parsing.</li>
+  <li> API for Anki: <a href="https://ankiweb.net/shared/info/2055492159">AnkiConnect</a></li>
+  <li> Japanese dictionary: <a href="https://www.edrdg.org/jmdict/j_jmdict.html">JMdict</a></li>
+  <li> JMDict in JSON format for easier parsing: <a href="https://github.com/scriptin/jmdict-simplified">jmdict-simplified</a></li>
 </ul> 
