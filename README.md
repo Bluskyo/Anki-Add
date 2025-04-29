@@ -11,4 +11,5 @@ Firefox extension for quickly adding words to anki
   <li> API for Anki: <a href="https://ankiweb.net/shared/info/2055492159">AnkiConnect</a></li>
   <li> Japanese dictionary: <a href="https://www.edrdg.org/jmdict/j_jmdict.html">JMdict</a></li>
   <li> JMDict in JSON format for easier parsing: <a href="https://github.com/scriptin/jmdict-simplified">jmdict-simplified</a></li>
+  <li> Font used in cards: <a href="https://fonts.google.com/specimen/Zen+Old+Mincho">Zen Old Mincho</a></li>
 </ul> 
