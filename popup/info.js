@@ -100,8 +100,8 @@ async function addNote() {
                                 "deckName": savedDeck,
                                 "checkChildren": false,
                                 "checkAllModels": false }
-                            },
-                            "audio": [{
+                            }, 
+                            "audio": [{ // considerably slows down creation of note type + ~500ms
                                 "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
                                 "filename": `ankiAdd_${word}_${furigana}.mp3`,
                                 "skipHash": "7e2c2f954ef6051373ba916f000168dc",
@@ -233,7 +233,15 @@ invoke('deckNames', 6).then((decks) => {
 
         }
     }
-)
+).catch(error => {
+    console.error("Error retrieving anki Info!", error);
+    const ankiDecksDropdDown = document.getElementById("anki-decks");
+    let option = document.createElement("option");
+    let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
+    option.appendChild(optionText);
+
+    ankiDecksDropdDown.appendChild(option);
+});
 
 // listens to add button on popup window.
 window.onload = () => {
