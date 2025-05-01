@@ -1,8 +1,12 @@
 # Anki-Add
-Firefox extension for quickly adding words to anki
+Firefox extension for quickly adding japanese words to Anki.
 
 ## Features🔥
 <ul>
+  <li>Easy word look up in browser.</li>
+  <li>Detects most conjugated words.</li>
+  <li>Fast card creation.</li>
+  <li>Nicly stylized and interactive Anki cards.</li>
   <li> <a href="https://play.google.com/store/apps/details?id=com.mindtwisted.kanjistudy/">Japanese Kanji Study</a> integration in anki cards. (only android)</li>
 </ul> 
 
