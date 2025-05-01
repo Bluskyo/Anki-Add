@@ -42,6 +42,8 @@ async function findDictonaryForm(word, dbIndex) {
   // if conjugation is more ambiguous runs the identifyVerb func. 
   switch(wordClass) {
     case "verb":
+      // conjugation found is ambiguous.
+      // need additional logic to find stem.
       dictonaryForm = identifyVerb(stem);
       break;
     case "ichidan": 
@@ -141,7 +143,8 @@ function identifyVerb(stem) {
   if (isHiragana) {
     removeTrailGana += 1;
   }
-
+  // finds the ending and replaces it to find the godans stem word. 
+  // If the word is a ichidan verb it will be handled later outside this function.
   switch(endHiragana) {
     case "わ":
     case "い":
@@ -196,7 +199,7 @@ function identifyVerb(stem) {
   return dictonaryForm;
 }
 
-// returns map: wordclass: string, form: array, stem: string
+// returns object: wordclass: string, form: array, stem: string
 function findConjugations(word) {
   let conjugationData = {
     wordClass : "",
@@ -278,6 +281,7 @@ const endInflection = {
   "ず" : ["ず-form", "verb"], 
 };
 
+// inflections for japanese words.
 const inflections = {
   "よう" : ["volitional", "ichidan"],
   ///// ambigous endings (can be ichidan or godan) /////  
@@ -418,7 +422,12 @@ const inflections = {
   "じゃなかった" : ["negative past", "na-adj"]
 };
 
+// data about word is stored here 
+// and sent to pop-up when needed
 let wordData = null;
+
+// data for the anki card to be made 
+// is stored here.
 let ankiData = {};
 
 browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
@@ -426,7 +435,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     case "saveSelection":
       ankiData.selectedText = message.text;
       ankiData.sentence = message.sentence; // clears sentence from previous sentence.
-      ankiData.savedURL = message.url;
+      ankiData.savedURL = message.url; // gets the url of the website the word is from.
 
       const word = message.text;
       const kanjiRe = /[一-龯]/;
@@ -474,6 +483,8 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 let dbIsPopulated = false; 
 const JMdictWorker = new Worker("innitDBWorker.js");
 
+// start webworker on different 
+// thread to reduse stress on mainthread when parcing dict file.
 JMdictWorker.postMessage("start");
 JMdictWorker.onmessage = function(message) {
   if (message.data == "done") {
@@ -482,6 +493,7 @@ JMdictWorker.onmessage = function(message) {
   }
 }
 
+// opens a connection to the indexDB.
 function openDB() {
   console.log("openDB ...");
   

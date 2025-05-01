@@ -30,6 +30,7 @@ document.addEventListener("mouseup", (e) => {
             const textNode = selection.focusNode.parentNode.innerText;
 
             // matches everything the not in [。] after that counts every proceeding match devided by "。".
+            // attempts to automatically get the sentence the word was taken from. 
             let sentence = "";
             const match = textNode.match(/[^。]*。?/g); 
             

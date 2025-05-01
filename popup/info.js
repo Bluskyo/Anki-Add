@@ -131,7 +131,7 @@ async function addNote() {
 
     })
 }
-
+// creates the flashcard template in Anki.
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
