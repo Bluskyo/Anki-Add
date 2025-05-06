@@ -45,6 +45,12 @@ async function addNote() {
             const wordData = response[0];
             let word = wordData.kanji[0];
             const furigana = wordData.kana[0];
+
+            // some onomatopoeic words have only reading and no kanji. 
+            if (!word) {
+                word = furigana;
+            }
+
             const meaning = document.getElementById("description").innerHTML;  
             const ankiData = response[1];  
             const savedUrl = ankiData.savedURL;
@@ -119,7 +125,9 @@ async function addNote() {
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
-                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: ${response[1].savedDeck}.`;
+                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: ${response[1].savedDeck}.\nUpdate existing note?`;
+                        document.getElementById("add-button").style.display = "none";
+                        document.getElementById("update-button").style.display = "block";
                     } else {
                         document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
                     }
@@ -130,6 +138,88 @@ async function addNote() {
         }
 
     })
+}
+
+function updateNote(){
+    browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
+        if (response) {
+            const wordData = response[0];
+            let word = wordData.kanji[0];
+            const furigana = wordData.kana[0];
+
+            // some onomatopoeic words have only reading and no kanji. 
+            if (!word) word = furigana;
+
+            const meaning = document.getElementById("description").innerHTML;  
+            const ankiData = response[1];  
+            const savedUrl = ankiData.savedURL;
+            const savedDeck = ankiData.savedDeck;
+
+            // formatting for tags in anki
+            let allTags = [];
+            for (const definition of wordData.sense) {
+                for (const tag of definition.partOfSpeech){
+                    allTags.push(tagsDict[tag]);
+                }                 
+            } 
+            const ankiFormat = allTags.join(",").replace(/ /g, "_");
+            const ankiTags = ankiFormat.replace(/,/g, " ");  
+
+            // marking word in example sentence logic:
+            let sentence = ankiData.sentence;
+
+            // for highlighting word in anki
+            // uses reading instead of kanji.
+            if (useReading) word = furigana;
+            
+            // marks entry or conjugated highlighted word.
+            if (sentence.includes(word)) {
+                const regex = new RegExp(word, "g"); 
+                sentence = sentence.replace(regex, `<mark>${word}</mark>`);
+            } else {
+                const selectedText = ankiData.selectedText;
+                const regex = new RegExp(selectedText, "g"); 
+                sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
+            }
+
+            // first get id of duplicate note.
+            invoke("findNotes", 6, {
+                "query": `"deck:${savedDeck}" word:${word}`
+            }).then( async (noteId) => {
+                // update said note with new lookup info and example sentence.
+                const result = await invoke("updateNote", 6, {
+                    "note": {
+                        "id": noteId[0],
+                        "fields": {
+                            "Word": word, 
+                            "Sentence": sentence,
+                            "JMdictSeq": wordData.id, 
+                            "Furigana": furigana, 
+                            "Meaning": meaning,
+                            "From": savedUrl 
+                        },
+                        "tags": ["AnkiAdd", ankiTags],
+                        "audio": [{
+                            "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
+                            "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                            "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                            "fields": [
+                                "Pronunciation"
+                            ]
+                        }]
+                    }
+                });
+
+                if (result === null){
+                    document.getElementById("status-message").textContent = `✅Updated Note!😊`;
+                }
+    
+            })
+
+        }
+
+    })
+
 }
 
 async function createNoteType() {
@@ -238,6 +328,7 @@ invoke('deckNames', 6).then((decks) => {
 // listens to add button on popup window.
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", addNote);
+    document.getElementById("update-button").addEventListener("click", updateNote);
     document.getElementById("note-form").addEventListener("submit", (e) => {
         e.preventDefault(); // stop text from being cleared
         addNote();
@@ -252,8 +343,13 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 // displays saved info about word.
 browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     // response = [wordData, ankiData]
+
     if (response[0]) {
-        document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
+        if (response[0].kanji.length > 0){
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
+        } else {
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kana[0]}</p>`;
+        }
 
         // display of each conjugation found along with links to said conjugation.
         const conjugationElement = document.getElementById("conjugation");
