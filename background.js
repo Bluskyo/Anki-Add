@@ -121,6 +121,12 @@ async function findDictonaryForm(word, dbIndex) {
   if (result){
     wordData = result;
     wordData.forms = conjugationData.form
+    
+    if (wordData.forms[0] == "imperative"){
+      wordData.forms[0] = "て-form"
+      return wordData;
+    }
+
     return wordData;
   }
 

@@ -49,8 +49,8 @@ function openDB() {
     fetch("data/jmdict-eng-3.6.1.json")
     .then(response => response.json())
     .then(json => {
-      addJMdict(db, json.words);
-    });
+      addJMdict(db, json.words)
+    })
 
   };
 
@@ -61,9 +61,16 @@ function addJMdict(db, json) {
  const store = transaction.objectStore("JMDict");
 
   transaction.oncomplete = (evt) => {
-  console.timeEnd('Execution Time'); // timer end 
-  console.log("Worker: Everything is added to indexedDB!");
-  postMessage("done"); 
+    console.timeEnd('Execution Time'); // timer end 
+    console.log("Worker: Everything is added to indexedDB!");
+
+    fetch("data/JLPTWords.json")
+    .then(response => response.json())
+    .then(json => {
+      addJLPTLevel(db, json)
+    })
+
+    //postMessage("done"); 
   };
 
   transaction.onerror = (evt) => {
@@ -85,5 +92,72 @@ function addJMdict(db, json) {
 
     store.add(wordEntry); // id is automatically chosen as id.
   })
+
+}
+
+function addJLPTLevel(db, json) {
+  console.log("Worker: Adding JLPT levels!")
+
+  const totalWords = Object.keys(json).length;
+  processedCount = 0;
+
+  let notFoundCount = [];
+
+  for (const word in json) {  
+    const objectStore  = db
+    .transaction(["JMDict"], "readwrite")
+    .objectStore("JMDict")
+
+    const kanjiRe = /[一-龯]/;
+    const containsKanji = kanjiRe.test(word);
+    let index;
+
+    if (containsKanji){
+      index = objectStore.index("kanjiIndex");
+    } else {
+      index = objectStore.index("readingIndex");
+    }
+
+    const request = index.get(word);
+
+    request.onerror = (evt) => {
+      console.log("Could not find:", word, "in db!");
+      console.error("Error!:", evt.error);
+    };
+  
+    request.onsuccess = (evt) => {
+      const entry = request.result;
+
+      processedCount++;
+
+      if (entry){
+        const indexName = index.name;
+        // some words have different levels 
+        // on the word in hiragana and kanji
+        if (entry.JLPT_Levels){
+          entry.JLPT_Levels.push({ [indexName]:json[word] });
+        } else {
+          entry.JLPT_Levels = [{ [indexName]:json[word] }];
+        }
+
+        const updateRequest = objectStore.put(entry);
+
+        updateRequest.onsuccess = () => {
+          //console.log(`updated word! ${updateRequest.result}`)
+        }
+
+      } else {
+        console.log("could not find entry!")
+        notFoundCount.push(word);
+      }
+
+      if (totalWords == processedCount){
+        console.log("Worker: Words not found:", notFoundCount);
+        postMessage("done"); 
+      }
+
+    };
+    
+  }
 
 }
