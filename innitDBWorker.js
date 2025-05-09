@@ -59,25 +59,23 @@ function addJMdict(db, json) {
  const transaction = db.transaction(["JMDict"], "readwrite");
  const store = transaction.objectStore("JMDict");
 
+  // parsing complete
   transaction.oncomplete = (evt) => {
     console.log("Worker: Everything is added to indexedDB!");
     console.timeEnd('Execution Time'); // timer end 
-
+    // start adding additional data to dictonary (jlpt/furigana)
     fetch("data/JLPTWords.json")
     .then(response => response.json())
     .then(json => {
-     // start adding additional data to dictonary (jlpt/furigana)
       addJLPTLevel(db, json);
-
-      const furiganaWorker = new Worker("furiganaWorker.js");
-      furiganaWorker.postMessage("start");
-      furiganaWorker.onmessage = function(message) {
-        if (message.data == "done") {
-          console.log("Worker: furigana-Worker DONE")
-        }
-      }
-
     })
+
+    fetch("data/JmdictFurigana.json")
+    .then(response => response.json())
+    .then(json => {
+      addFurigana(db, json);
+    })
+
   };
 
   transaction.onerror = (evt) => {
@@ -153,18 +151,56 @@ function addJLPTLevel(db, json) {
         }
 
       } else {
-        //console.log("could not find entry!")
         notFoundCount.push(word);
       }
 
       if (totalWords == processedCount){
         console.log("Worker: JLPT levels added!");
         console.timeEnd('Execution Time'); // timer end 
-        postMessage("done"); 
       }
 
     };
     
   }
+
+}
+
+function addFurigana(db, json) {
+  console.log("Worker: Adding furigana data!")
+  console.time('Execution Time'); // timer start
+
+  // create fast lookup since json file is an array.
+  const furiganaLookUp = new Map();
+  for (const entry of json) {
+    furiganaLookUp.set(entry.text, entry.furigana);
+  }
+
+  const objectStore  = db
+  .transaction(["JMDict"], "readwrite")
+  .objectStore("JMDict")
+
+  objectStore.openCursor().onsuccess = (event) => {
+    const cursor = event.target.result;
+    if (cursor) {
+      for (const kanji of cursor.value.kanji) {
+        const match = furiganaLookUp.get(kanji);
+        if (match) {
+          const entry = cursor.value;
+
+          if (entry.furigana) {
+            entry.furigana.push({ [kanji]: match});
+          } else {
+            entry.furigana = [{ [kanji]: match}];
+          }
+          cursor.update(entry);
+        }
+      }
+      cursor.continue();
+    } else {
+      console.log("Worker: Added furigana data!");
+      console.timeEnd('Execution Time'); // timer end 
+      postMessage("done"); 
+    }
+  };
 
 }

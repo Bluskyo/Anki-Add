@@ -427,7 +427,7 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
                     `(ctrl + Q) to open popup window)`;
                 }
             } else {
-                document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 30 seconds.) `
+                document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 1 minute.) `
             }
 
         });
