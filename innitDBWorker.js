@@ -4,7 +4,7 @@ var db;
 
 onmessage = function(message) {
   if (message.data === "start") {
-    console.log("Worker received message")
+    console.log("Worker: received message")
     openDB();
   }
 }
@@ -49,11 +49,10 @@ function openDB() {
     fetch("data/jmdict-eng-3.6.1.json")
     .then(response => response.json())
     .then(json => {
-      addJMdict(db, json.words)
+      addJMdict(db, json.words);
     })
 
   };
-
 }
 
 function addJMdict(db, json) {
@@ -61,16 +60,24 @@ function addJMdict(db, json) {
  const store = transaction.objectStore("JMDict");
 
   transaction.oncomplete = (evt) => {
-    console.timeEnd('Execution Time'); // timer end 
     console.log("Worker: Everything is added to indexedDB!");
+    console.timeEnd('Execution Time'); // timer end 
 
     fetch("data/JLPTWords.json")
     .then(response => response.json())
     .then(json => {
-      addJLPTLevel(db, json)
-    })
+     // start adding additional data to dictonary (jlpt/furigana)
+      addJLPTLevel(db, json);
 
-    //postMessage("done"); 
+      const furiganaWorker = new Worker("furiganaWorker.js");
+      furiganaWorker.postMessage("start");
+      furiganaWorker.onmessage = function(message) {
+        if (message.data == "done") {
+          console.log("Worker: furigana-Worker DONE")
+        }
+      }
+
+    })
   };
 
   transaction.onerror = (evt) => {
@@ -97,17 +104,18 @@ function addJMdict(db, json) {
 
 function addJLPTLevel(db, json) {
   console.log("Worker: Adding JLPT levels!")
+  console.time('Execution Time'); // timer start
 
   const totalWords = Object.keys(json).length;
-  processedCount = 0;
 
+  let processedCount = 0;
   let notFoundCount = [];
 
-  for (const word in json) {  
-    const objectStore  = db
-    .transaction(["JMDict"], "readwrite")
-    .objectStore("JMDict")
+  const objectStore  = db
+  .transaction(["JMDict"], "readwrite")
+  .objectStore("JMDict")
 
+  for (const word in json) {  
     const kanjiRe = /[一-龯]/;
     const containsKanji = kanjiRe.test(word);
     let index;
@@ -127,7 +135,6 @@ function addJLPTLevel(db, json) {
   
     request.onsuccess = (evt) => {
       const entry = request.result;
-
       processedCount++;
 
       if (entry){
@@ -141,18 +148,18 @@ function addJLPTLevel(db, json) {
         }
 
         const updateRequest = objectStore.put(entry);
-
         updateRequest.onsuccess = () => {
           //console.log(`updated word! ${updateRequest.result}`)
         }
 
       } else {
-        console.log("could not find entry!")
+        //console.log("could not find entry!")
         notFoundCount.push(word);
       }
 
       if (totalWords == processedCount){
-        console.log("Worker: Words not found:", notFoundCount);
+        console.log("Worker: JLPT levels added!");
+        console.timeEnd('Execution Time'); // timer end 
         postMessage("done"); 
       }
 
