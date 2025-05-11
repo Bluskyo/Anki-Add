@@ -87,7 +87,7 @@ function innitJMdict(db, json) {
     }
 
     if (word.furigana){
-      wordEntry.furigana = word.furigana.map(entry => entry);
+      wordEntry.furigana = word.furigana;
     }
 
     store.add(wordEntry); // id is automatically chosen as id.

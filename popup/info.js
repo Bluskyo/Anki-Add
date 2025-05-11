@@ -43,12 +43,40 @@ async function addNote() {
     browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
         if (response) {
             const wordData = response[0];
+            let reading = response[0].kana[0];
             let word = wordData.kanji[0];
-            const furigana = wordData.kana[0];
+            let furigana = "";
 
-            // some onomatopoeic words have only reading and no kanji. 
             if (!word) {
-                word = furigana;
+                word = reading;
+                furigana = reading
+            }
+
+            // always has to have correct kanji 
+            // and reading to download audio for flashcard.
+            const urlWord = word;
+            const urlReading = reading;
+
+            // format furigana for Anki-style display: e.g., 頂[いただ]く
+            if (response[0].furigana) {
+                const furiganaEntries = response[0].furigana;
+
+                for (const entry of furiganaEntries) {
+                    const [[entryWord, furiganaData]] = Object.entries(entry);
+
+                    if (entryWord === word) {
+                        for (const data of furiganaData) {
+                            for (const [htmlTag, text] of Object.entries(data)) {
+                                furigana += (htmlTag === "ruby") ? text : `[${text}]`;
+                            }
+                        }
+                        break;
+                    }
+                }
+            } else if (word === reading){
+                furigana = reading;
+            } else {
+                furigana = `${word}[${reading}]`;
             }
 
             const meaning = document.getElementById("description").innerHTML;  
@@ -63,16 +91,18 @@ async function addNote() {
                     allTags.push(tagsDict[tag]);
                 }                 
             } 
+
             const ankiFormat = allTags.join(",").replace(/ /g, "_");
             const ankiTags = ankiFormat.replace(/,/g, " ");  
 
             // marking word in example sentence logic:
             let sentence = ankiData.sentence; 
             if (useReading){ // for highlighting word in anki
-                word = furigana; // uses reading instead of kanji.
+                furigana = reading;
+                word = reading;
             } 
-            // marks entry or conjugated highlighted word.
 
+            // marks entry or conjugated highlighted word.
             if (sentence.includes(word)) {
                 const regex = new RegExp(word, "g"); 
                 sentence = sentence.replace(regex, `<mark>${word}</mark>`);
@@ -81,7 +111,7 @@ async function addNote() {
                 const regex = new RegExp(selectedText, "g"); 
                 sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
             }
-            
+
             // adds all info to anki note.
             if (meaning.length > 0){
                 try {
@@ -108,8 +138,8 @@ async function addNote() {
                                 "checkAllModels": false }
                             },
                             "audio": [{ // considerably slows down creation of note type + ~500ms
-                                "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
-                                "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                                "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${urlWord}&kana=${urlReading}`,
+                                "filename": `ankiAdd_${urlWord}_${urlReading}.mp3`,
                                 "skipHash": "7e2c2f954ef6051373ba916f000168dc",
                                 "fields": [
                                     "Pronunciation"
@@ -144,11 +174,41 @@ function updateNote(){
     browser.runtime.sendMessage({ action: "getAllData" }).then(response => {
         if (response) {
             const wordData = response[0];
+            let reading = response[0].kana[0];
             let word = wordData.kanji[0];
-            const furigana = wordData.kana[0];
+            let furigana = "";
 
-            // some onomatopoeic words have only reading and no kanji. 
-            if (!word) word = furigana;
+            if (!word) {
+                word = reading;
+                furigana = reading
+            }
+
+            // always has to have correct kanji 
+            // and reading to download audio for flashcard.
+            const urlWord = word;
+            const urlReading = reading;
+
+            // format furigana for Anki-style display: e.g., 頂[いただ]く
+            if (response[0].furigana) {
+                const furiganaEntries = response[0].furigana;
+
+                for (const entry of furiganaEntries) {
+                    const [[entryWord, furiganaData]] = Object.entries(entry);
+
+                    if (entryWord === word) {
+                        for (const data of furiganaData) {
+                            for (const [htmlTag, text] of Object.entries(data)) {
+                                furigana += (htmlTag === "ruby") ? text : `[${text}]`;
+                            }
+                        }
+                        break;
+                    }
+                }
+            } else if (word === reading){
+                furigana = reading;
+            } else {
+                furigana = `${word}[${reading}]`;
+            }
 
             const meaning = document.getElementById("description").innerHTML;  
             const ankiData = response[1];  
@@ -162,16 +222,17 @@ function updateNote(){
                     allTags.push(tagsDict[tag]);
                 }                 
             } 
+
             const ankiFormat = allTags.join(",").replace(/ /g, "_");
             const ankiTags = ankiFormat.replace(/,/g, " ");  
 
             // marking word in example sentence logic:
-            let sentence = ankiData.sentence;
+            let sentence = ankiData.sentence; 
+            if (useReading){ // for highlighting word in anki
+                furigana = reading;
+                word = reading;
+            } 
 
-            // for highlighting word in anki
-            // uses reading instead of kanji.
-            if (useReading) word = furigana;
-            
             // marks entry or conjugated highlighted word.
             if (sentence.includes(word)) {
                 const regex = new RegExp(word, "g"); 
@@ -182,9 +243,10 @@ function updateNote(){
                 sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
             }
 
+
             // first get id of duplicate note.
             invoke("findNotes", 6, {
-                "query": `"deck:${savedDeck}" word:${word}`
+                "query": `"deck:${savedDeck}" word:${word}` // sorts to find only one note.
             }).then( async (noteId) => {
                 // update said note with new lookup info and example sentence.
                 const result = await invoke("updateNote", 6, {
@@ -200,8 +262,8 @@ function updateNote(){
                         },
                         "tags": ["AnkiAdd", ankiTags],
                         "audio": [{
-                            "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
-                            "filename": `ankiAdd_${word}_${furigana}.mp3`,
+                            "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${urlWord}&kana=${urlReading}`,
+                            "filename": `ankiAdd_${urlWord}_${urlReading}.mp3`,
                             "skipHash": "7e2c2f954ef6051373ba916f000168dc",
                             "fields": [
                                 "Pronunciation"
@@ -227,13 +289,13 @@ async function createNoteType() {
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n   font-size: 25px;\n  --text-color: black;\n  font-family: Zen Old Mincho, serif;\n   font-weight: 400;\n}font-style: normal;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
+            "css": ".card {\n   font-size: 25px;\n  --text-color: black;\n  font-family: Zen Old Mincho, serif;\n   font-weight: 400;\n}font-style: normal;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}\n.hidden {\n  display: none;\n }\nol {\n  margin-top: 0.5rem\n  }\n",
             "isCloze": false,
             "cardTemplates": [
                 {
                     "Name": "Japanese",
-                    "Front": "<div class=small>{{hint:Furigana}}</div>\n<div class=big>{{Word}}</div>\n<div class=small>{{hint:Sentence}}</div>",
-                    "Back": "<script>\nfunction isAndroid() {\n  return /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\n  document.body.classList.add(\"android\");\n} else {\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  {{Meaning}}\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  <div class=definition>{{Meaning}}</div>\n</div>\n<script>\n  if (isAndroid()) {\n    document.querySelector(\".android-only\").style.display = \"block\";\n  } else {\n    document.querySelector(\".desktop-only\").style.display = \"block\";\n  }\n</script>\n<center>{{Pronunciation}}</center>"
+                    "Front": `<div class="big" id="entry" onclick="revealFurigana()">\n{{Word}}\n</div>\n<div class="big hidden" id="furigana" onclick="hideFurigana()">\n{{furigana:Furigana}}\n</div>\n<script>\nfunction revealFurigana() {\ndocument.getElementById("entry").classList.add("hidden");\ndocument.getElementById("furigana").classList.remove("hidden");\n}\nfunction hideFurigana() {\ndocument.getElementById("furigana").classList.add("hidden");\ndocument.getElementById("entry").classList.remove("hidden");\n}\n</script>\n<div class=small>{{hint:Sentence}}</div>`, 
+                    "Back": `<script>\nfunction isAndroid() {\nreturn /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\ndocument.body.classList.add("android");\n} else {\ndocument.body.classList.add("desktop");\n}\n</script>\n<div class="android-only" style="display: none;">\n<a href="kanjistudy://word?id={{JMdictSeq}}">\n<div class=big>{{furigana:Furigana}}</div>\n</a>\n<a href="https://jisho.org/search/{{Sentence}}">\n<div class=small>{{Sentence}}</div>\n</a>\n{{Meaning}}\n</div>\n<div class="desktop-only" style="display: none;">\n<a href="https://jisho.org/search/{{Word}}">\n<div class=big>{{furigana:Furigana}}</div>\n</a>\n<a href="https://jisho.org/search/{{Sentence}}">\n<div class=small>{{Sentence}}</div>\n</a>\n<div class=definition>{{Meaning}}</div>\n</div>\n<script>\nif (isAndroid()) {\ndocument.querySelector(".android-only").style.display = "block";\n} else {\ndocument.querySelector(".desktop-only").style.display = "block";\n}\n</script>\n<center>{{Pronunciation}}</center>`
                 }
             ]
         }
@@ -444,7 +506,7 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
                     `(ctrl + Q) to open popup window)`;
                 }
             } else {
-                document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 1 minute.) `
+                document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 30 seconds.) `
             }
 
         });
