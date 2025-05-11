@@ -46,16 +46,16 @@ function openDB() {
     store.createIndex("readingIndex", "kana", { unique: false, multiEntry: true });
     store.createIndex('meaningIndex', 'sense', { unique: false, multiEntry: true });
 
-    fetch("data/jmdict-eng-3.6.1.json")
+    fetch("data/jmdictExtended.json")
     .then(response => response.json())
     .then(json => {
-      addJMdict(db, json.words);
+      innitJMdict(db, json.words);
     })
 
   };
 }
 
-function addJMdict(db, json) {
+function innitJMdict(db, json) {
  const transaction = db.transaction(["JMDict"], "readwrite");
  const store = transaction.objectStore("JMDict");
 
@@ -63,19 +63,7 @@ function addJMdict(db, json) {
   transaction.oncomplete = (evt) => {
     console.log("Worker: Everything is added to indexedDB!");
     console.timeEnd('Execution Time'); // timer end 
-    // start adding additional data to dictonary (jlpt/furigana)
-    fetch("data/JLPTWords.json")
-    .then(response => response.json())
-    .then(json => {
-      addJLPTLevel(db, json);
-    })
-
-    fetch("data/JmdictFurigana.json")
-    .then(response => response.json())
-    .then(json => {
-      addFurigana(db, json);
-    })
-
+    postMessage("done");
   };
 
   transaction.onerror = (evt) => {
@@ -84,7 +72,6 @@ function addJMdict(db, json) {
 
   console.time('Execution Time'); // timer start
   console.log("Worker: Reading dictfile...");
-
   json.forEach(word => {
     const wordEntry = {
       id: word.id, // use existing ID
@@ -92,115 +79,18 @@ function addJMdict(db, json) {
       kanjiCommon: word.kanji.map(entry => entry.common), 
       kana: word.kana.map(entry => entry.text),  
       kanaCommon: word.kana.map(entry => entry.common),   
-      sense: word.sense.map(entry => entry)
+      sense: word.sense.map(entry => entry),
     };
+
+    if (word.jlptLevel){
+      wordEntry.jlptLevel = word.jlptLevel.map(entry => entry);
+    }
+
+    if (word.furigana){
+      wordEntry.furigana = word.furigana.map(entry => entry);
+    }
 
     store.add(wordEntry); // id is automatically chosen as id.
   })
-
-}
-
-function addJLPTLevel(db, json) {
-  console.log("Worker: Adding JLPT levels!")
-  console.time('Execution Time'); // timer start
-
-  const totalWords = Object.keys(json).length;
-
-  let processedCount = 0;
-  let notFoundCount = [];
-
-  const objectStore  = db
-  .transaction(["JMDict"], "readwrite")
-  .objectStore("JMDict")
-
-  for (const word in json) {  
-    const kanjiRe = /[一-龯]/;
-    const containsKanji = kanjiRe.test(word);
-    let index;
-
-    if (containsKanji){
-      index = objectStore.index("kanjiIndex");
-    } else {
-      index = objectStore.index("readingIndex");
-    }
-
-    const request = index.get(word);
-
-    request.onerror = (evt) => {
-      console.log("Could not find:", word, "in db!");
-      console.error("Error!:", evt.error);
-    };
-  
-    request.onsuccess = (evt) => {
-      const entry = request.result;
-      processedCount++;
-
-      if (entry){
-        const indexName = index.name;
-        // some words have different levels 
-        // on the word in hiragana and kanji
-        if (entry.JLPT_Levels){
-          entry.JLPT_Levels.push({ [indexName]:json[word] });
-        } else {
-          entry.JLPT_Levels = [{ [indexName]:json[word] }];
-        }
-
-        const updateRequest = objectStore.put(entry);
-        updateRequest.onsuccess = () => {
-          //console.log(`updated word! ${updateRequest.result}`)
-        }
-
-      } else {
-        notFoundCount.push(word);
-      }
-
-      if (totalWords == processedCount){
-        console.log("Worker: JLPT levels added!");
-        console.timeEnd('Execution Time'); // timer end 
-      }
-
-    };
-    
-  }
-
-}
-
-function addFurigana(db, json) {
-  console.log("Worker: Adding furigana data!")
-  console.time('Execution Time'); // timer start
-
-  // create fast lookup since json file is an array.
-  const furiganaLookUp = new Map();
-  for (const entry of json) {
-    furiganaLookUp.set(entry.text, entry.furigana);
-  }
-
-  const objectStore  = db
-  .transaction(["JMDict"], "readwrite")
-  .objectStore("JMDict")
-
-  objectStore.openCursor().onsuccess = (event) => {
-    const cursor = event.target.result;
-    if (cursor) {
-      for (const kanji of cursor.value.kanji) {
-        const match = furiganaLookUp.get(kanji);
-        if (match) {
-          const entry = cursor.value;
-
-          if (entry.furigana) {
-            entry.furigana.push({ [kanji]: match});
-          } else {
-            entry.furigana = [{ [kanji]: match}];
-          }
-          cursor.update(entry);
-        }
-      }
-      cursor.continue();
-    } else {
-      console.log("Worker: Added furigana data!");
-      console.timeEnd('Execution Time'); // timer end 
-      postMessage("done"); 
-    }
-  };
 
 }

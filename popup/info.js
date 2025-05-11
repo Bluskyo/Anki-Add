@@ -399,7 +399,24 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
         const kanjis = response[0].kanjiCommon;
         const readings = response[0].kanaCommon;
         if (kanjis.includes(true) || readings.includes(true) ) {
-            document.getElementById("additional-info").innerHTML = `<b>` + "common word" + `</b>`;
+            document.getElementById("additional-info").innerHTML = `<b>common</b> `;
+        }
+
+        // shows jlpt tags.
+        if (response[0].jlptLevel) {
+            if (response[0].jlptLevel.length == 1){
+                const object = response[0].jlptLevel[0];
+                const value = Object.values(object)[0];
+                document.getElementById("additional-info").innerHTML += `<b>JLPT ${value}</b>`;
+            } else {
+                document.getElementById("additional-info").innerHTML += `<b><br>JLPT: <b>`;
+                for (const object of response[0].jlptLevel){
+                    for (const key in object){
+                        document.getElementById("additional-info").innerHTML += `<b>${key}: ${object[key]}</b> `;
+                    }
+                }
+            }
+
         }
 
         // if word is usually written in kana, auto tick checkbox.
