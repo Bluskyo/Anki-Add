@@ -106,3 +106,7 @@ a {
 .update-button {
   display:none;
 }
+
+.status-message {
+  display:none;
+}

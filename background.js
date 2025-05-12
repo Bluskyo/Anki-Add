@@ -449,7 +449,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           return findDictonaryForm(word, "kanjiIndex");
         }
       } else {
-        let result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });;
+        let result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });
 
         if (result){
           return wordData = result;

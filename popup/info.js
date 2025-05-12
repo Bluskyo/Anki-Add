@@ -57,22 +57,25 @@ async function addNote() {
             const urlWord = word;
             const urlReading = reading;
 
-            // format furigana for Anki-style display: e.g., 頂[いただ]く
+            // format furigana for Anki-style display: e.g., 頂[いただ]く ////
             if (response[0].furigana) {
                 const furiganaEntries = response[0].furigana;
-
                 for (const entry of furiganaEntries) {
                     const [[entryWord, furiganaData]] = Object.entries(entry);
 
-                    if (entryWord === word) {
+                    if (entryWord === response[0].kanji[0]) {
                         for (const data of furiganaData) {
-                            for (const [htmlTag, text] of Object.entries(data)) {
-                                furigana += (htmlTag === "ruby") ? text : `[${text}]`;
+                            if (!data.rt) {
+                                furigana += `${data.ruby} `;
+                            } else {
+                                furigana += `${data.ruby}[${data.rt}]`;
                             }
                         }
+
                         break;
                     }
                 }
+
             } else if (word === reading){
                 furigana = reading;
             } else {
@@ -91,6 +94,15 @@ async function addNote() {
                     allTags.push(tagsDict[tag]);
                 }                 
             } 
+
+            // add jlpt levels to tags
+            if (wordData.jlptLevel){
+                for (const [key, object] of Object.entries(wordData.jlptLevel)) {
+                    for (const level in object) {
+                        allTags.push(object[level]);
+                    }
+                }
+            }
 
             const ankiFormat = allTags.join(",").replace(/ /g, "_");
             const ankiTags = ankiFormat.replace(/,/g, " ");  
@@ -141,24 +153,25 @@ async function addNote() {
                                 "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${urlWord}&kana=${urlReading}`,
                                 "filename": `ankiAdd_${urlWord}_${urlReading}.mp3`,
                                 "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-                                "fields": [
-                                    "Pronunciation"
-                                ]
+                                "fields": ["Pronunciation"]
                             }]
                         }
                     })
 
                     if (result) {
+                        document.getElementById("status-message").style.display = "inline-grid";
                         document.getElementById("status-message").textContent = `✅Added "${response[1].selectedText}" to "${response[1].savedDeck}".😊`
                     }
 
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
-                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: ${response[1].savedDeck}.\nUpdate existing note?`;
+                        document.getElementById("status-message").style.display = "inline-grid";
+                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: "${response[1].savedDeck}".\nUpdate existing note?`;
                         document.getElementById("add-button").style.display = "none";
                         document.getElementById("update-button").style.display = "block";
                     } else {
+                        document.getElementById("status-message").style.display = "inline-grid";
                         document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
                     }
                 }
@@ -195,10 +208,12 @@ function updateNote(){
                 for (const entry of furiganaEntries) {
                     const [[entryWord, furiganaData]] = Object.entries(entry);
 
-                    if (entryWord === word) {
+                    if (entryWord === response[0].kanji[0]) {
                         for (const data of furiganaData) {
-                            for (const [htmlTag, text] of Object.entries(data)) {
-                                furigana += (htmlTag === "ruby") ? text : `[${text}]`;
+                            if (!data.rt) {
+                                furigana += `${data.ruby} `;
+                            } else {
+                                furigana += `${data.ruby}[${data.rt}]`;
                             }
                         }
                         break;
@@ -222,6 +237,14 @@ function updateNote(){
                     allTags.push(tagsDict[tag]);
                 }                 
             } 
+
+            if (wordData.jlptLevel){
+                for (const [key, object] of Object.entries(wordData.jlptLevel)) {
+                    for (const level in object) {
+                        allTags.push(object[level]);
+                    }
+                }
+            }
 
             const ankiFormat = allTags.join(",").replace(/ /g, "_");
             const ankiTags = ankiFormat.replace(/,/g, " ");  
@@ -265,14 +288,13 @@ function updateNote(){
                             "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${urlWord}&kana=${urlReading}`,
                             "filename": `ankiAdd_${urlWord}_${urlReading}.mp3`,
                             "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-                            "fields": [
-                                "Pronunciation"
-                            ]
+                            "fields": ["Pronunciation"]
                         }]
                     }
                 });
 
                 if (result === null){
+                    document.getElementById("status-message").style.display = "inline-grid";
                     document.getElementById("status-message").textContent = `✅Updated Note!😊`;
                 }
     
@@ -421,7 +443,7 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kana[0]}</p>`;
         }
 
-        // display of each conjugation found along with links to said conjugation.
+        // displays each conjugation found along with links to said conjugation.
         const conjugationElement = document.getElementById("conjugation");
         if (response[0].forms) {
             conjugationElement.innerHTML = response[1].selectedText + " > ";
@@ -478,10 +500,8 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
                     }
                 }
             }
-
         }
-
-        // if word is usually written in kana, auto tick checkbox.
+        // displays if word is usually written in kana, auto tick checkbox.
         const usuallyKana = response[0].sense[0].misc[0]; 
         if (usuallyKana == "uk") {
             useReading = true;
