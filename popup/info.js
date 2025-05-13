@@ -159,19 +159,19 @@ async function addNote() {
                     })
 
                     if (result) {
-                        document.getElementById("status-message").style.display = "inline-grid";
+                        document.getElementById("status-message").style.display = "block";
                         document.getElementById("status-message").textContent = `✅Added "${response[1].selectedText}" to "${response[1].savedDeck}".😊`
                     }
 
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
-                        document.getElementById("status-message").style.display = "inline-grid";
+                        document.getElementById("status-message").style.display = "block";
                         document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: "${response[1].savedDeck}".\nUpdate existing note?`;
                         document.getElementById("add-button").style.display = "none";
                         document.getElementById("update-button").style.display = "block";
                     } else {
-                        document.getElementById("status-message").style.display = "inline-grid";
+                        document.getElementById("status-message").style.display = "block";
                         document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
                     }
                 }
@@ -317,7 +317,7 @@ async function createNoteType() {
                 {
                     "Name": "Japanese",
                     "Front": `<div class="big" id="entry" onclick="revealFurigana()">\n{{Word}}\n</div>\n<div class="big hidden" id="furigana" onclick="hideFurigana()">\n{{furigana:Furigana}}\n</div>\n<script>\nfunction revealFurigana() {\ndocument.getElementById("entry").classList.add("hidden");\ndocument.getElementById("furigana").classList.remove("hidden");\n}\nfunction hideFurigana() {\ndocument.getElementById("furigana").classList.add("hidden");\ndocument.getElementById("entry").classList.remove("hidden");\n}\n</script>\n<div class=small>{{hint:Sentence}}</div>`, 
-                    "Back": `<script>\nfunction isAndroid() {\nreturn /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\ndocument.body.classList.add("android");\n} else {\ndocument.body.classList.add("desktop");\n}\n</script>\n<div class="android-only" style="display: none;">\n<a href="kanjistudy://word?id={{JMdictSeq}}">\n<div class=big>{{furigana:Furigana}}</div>\n</a>\n<a href="https://jisho.org/search/{{Sentence}}">\n<div class=small>{{Sentence}}</div>\n</a>\n{{Meaning}}\n</div>\n<div class="desktop-only" style="display: none;">\n<a href="https://jisho.org/search/{{Word}}">\n<div class=big>{{furigana:Furigana}}</div>\n</a>\n<a href="https://jisho.org/search/{{Sentence}}">\n<div class=small>{{Sentence}}</div>\n</a>\n<div class=definition>{{Meaning}}</div>\n</div>\n<script>\nif (isAndroid()) {\ndocument.querySelector(".android-only").style.display = "block";\n} else {\ndocument.querySelector(".desktop-only").style.display = "block";\n}\n</script>\n<center>{{Pronunciation}}</center>`
+                    "Back": "<script>\nfunction isAndroid(){\n  return /Android/i.test(navigator.userAgent);\n}\nif(isAndroid()){\n  document.body.classList.add(\"android\");\n}else{\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<script>\nfunction cleanSentence(){\n  const sentence=`{{Sentence}}`;\n  const wordMatch=sentence.match(/<mark>(.*?)<\\/mark>/);\n  if(wordMatch){\n    const jishoSentence=sentence.replaceAll(/(<br>)?<mark>(.*?)<\\/mark>(<br>)?/g,wordMatch[1]);\n    document.getElementById(\"jisho\").href=`https://jisho.org/search/${jishoSentence}`;\n    document.getElementById(\"jisho2\").href=`https://jisho.org/search/${jishoSentence}`;\n  }\n}\ncleanSentence();\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=\"big\">{{furigana:Furigana}}</div>\n  </a>\n  <a id=\"jisho\" href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=\"small\">{{Sentence}}</div>\n  </a>\n  <div class=\"definition\">{{Meaning}}</div>\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=\"big\">{{furigana:Furigana}}</div>\n  </a>\n  <a id=\"jisho2\" href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=\"small\">{{Sentence}}</div>\n  </a>\n  <div class=\"definition\">{{Meaning}}</div>\n</div>\n<script>\nif(isAndroid()){\n  document.querySelector(\".android-only\").style.display=\"block\";\n}else{\n  document.querySelector(\".desktop-only\").style.display=\"block\";\n}\n</script>\n<center>{{Pronunciation}}</center>"
                 }
             ]
         }
