@@ -88,6 +88,7 @@ async function getDataForCard(response){
     }
 
     const meaning = document.getElementById("description").innerHTML;  
+
     const ankiData = response[1];  
     const savedUrl = ankiData.savedURL;
     const savedDeck = ankiData.savedDeck;
@@ -132,7 +133,7 @@ async function getDataForCard(response){
     return { 
         "word" : word, "sentence" : sentence, "id" : wordData.id, "furigana" : furigana, 
         "meaning" : meaning, "url" : savedUrl, "tags": ankiTags, "deck" : savedDeck,
-        "urlWord" : urlWord, "urlReading" : urlReading
+        "urlWord" : urlWord, "urlReading" : urlReading, "audioFilename": response[0].audioFileName
     }
 }
 // rework fetching of audio 
@@ -152,6 +153,10 @@ async function addNote() {
             // adds all info to anki note.
             if (Object.keys(cardData).length > 0){
                 try {
+                    const audioData = await invoke("retrieveMediaFile", 6, {
+                        "filename": cardData.audioFilename
+                    })
+                    
                     const result = await invoke('addNote', 6, {
                         "note": {
                             "deckName": cardData.deck, 
@@ -174,10 +179,9 @@ async function addNote() {
                                 "checkChildren": false,
                                 "checkAllModels": false }
                             },
-                            "audio": [{ // considerably slows down creation of note type + ~500ms
-                                "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${cardData.urlWord}&kana=${cardData.urlReading}`,
-                                "filename": `ankiAdd_${cardData.urlWord}_${cardData.urlReading}.mp3`,
-                                "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                            "audio": [{
+                                "filename": cardData.audioFilename,
+                                "data": audioData,
                                 "fields": ["Pronunciation"]
                             }]
                         }
@@ -218,6 +222,10 @@ async function updateNote(){
             const noteID = await invoke("findNotes", 6, {
                 "query": `"deck:${cardData.deck}" word:${cardData.word}` // sorts to find only one note.
             })
+
+            const audioData = await invoke("retrieveMediaFile", 6, {
+                "filename": cardData.audioFilename
+            })
     
             // update said note with new lookup info and example sentence.
             const result = await invoke("updateNote", 6, {
@@ -232,10 +240,9 @@ async function updateNote(){
                         "From": cardData.url 
                     },
                     "tags": ["AnkiAdd", cardData.tags],
-                    "audio": [{
-                        "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${cardData.urlWord}&kana=${cardData.urlReading}`,
-                        "filename": `ankiAdd_${cardData.urlWord}_${cardData.urlReading}.mp3`,
-                        "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+                    "audio": [{ 
+                        "filename": cardData.audioFilename,
+                        "data": audioData,
                         "fields": ["Pronunciation"]
                     }]
                 }
@@ -245,8 +252,6 @@ async function updateNote(){
                 document.getElementById("status-message").style.display = "block";
                 document.getElementById("status-message").textContent = `✅Updated Note!😊`;
             }
-    
-            
 
         }
 
