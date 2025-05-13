@@ -56,7 +56,14 @@ async function getDataForCard(response){
             // if word has same furigana reading as the reading. Else display the 
             // special reading after the loop is done.
             const data = Object.values(furiganaData);
-            const furiganaReading = data.map(furigana => furigana.rt).join("");
+            // const furiganaReading = data.map(furigana => furigana.rt).join("");
+            const furiganaReading = data.map(furigana => {
+                if (furigana.ruby && furigana.rt){
+                    return furigana.rt
+                } else if (furigana.ruby && !furigana.rt){
+                    return furigana.ruby
+                }
+            }).join("");
 
             if (entryWord === response[0].kanji[0] && furiganaReading == reading ) {
                 for (const data of furiganaData) {
@@ -141,7 +148,7 @@ async function addNote() {
     browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
         if (response) {
             const cardData = await getDataForCard(response);
-
+            
             // adds all info to anki note.
             if (Object.keys(cardData).length > 0){
                 try {
