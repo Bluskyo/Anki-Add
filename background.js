@@ -2,6 +2,28 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
+function openDB() {
+  console.log("openDB ...");
+  
+  var req = indexedDB.open(dbName, dbVersion);
+
+  req.onsuccess = function (evt) {
+    console.log("openDB DONE");
+    db = req.result;
+  };
+
+  req.onerror = function (evt) {
+    console.error("openDB:", evt.target.errorCode);
+    reject(evt.target.errorCode);
+  };
+
+  // innit db if needed.
+  req.onupgradeneeded = function (evt) {
+    console.error("openDB.onupgradeneeded hit in background script!");
+  }
+
+};
+
 function lookupInDb(word, index) {
   return new Promise((resolve, reject) => {  
     console.log("looking up word:", word);
@@ -123,6 +145,12 @@ async function findDictonaryForm(word, dbIndex) {
   if (result){
     wordData = result;
     wordData.forms = conjugationData.form
+    
+    if (wordData.forms[0] == "imperative"){
+      wordData.forms[0] = "て-form"
+      return wordData;
+    }
+
     return wordData;
   }
 
@@ -261,6 +289,38 @@ function findConjugations(word) {
 
 
   return conjugationData;  
+}
+
+function invoke(action, version, params={}) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.addEventListener('error', () => reject('failed to issue request'));
+        xhr.addEventListener('load', () => {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (Object.getOwnPropertyNames(response).length != 2) {
+                    throw 'response has an unexpected number of fields';
+                }
+                if (!response.hasOwnProperty('error')) {
+                    throw 'response is missing required error field';
+                }
+                if (!response.hasOwnProperty('result')) {
+                    throw 'response is missing required result field';
+                }
+                if (response.error) {
+                    throw response.error;
+                }
+                resolve(response.result);
+            } catch (e) {
+                reject(e);
+            }
+        });
+
+        xhr.open('POST', 'http://127.0.0.1:8765');
+        xhr.send(JSON.stringify({action, version, params}));
+    }).catch((error) => {
+        throw error;
+    }) 
 }
 
 // inflections that doesnt have any more conjugations.
@@ -443,24 +503,52 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
       // optimistic search:
       if (containsKanji){
-        let result = await lookupInDb(word, "kanjiIndex").catch((err) => { console.error(err) });
+        const result = await lookupInDb(word, "kanjiIndex").catch((err) => { console.error(err) });
         
         if (result){
-          return wordData = result;
+          wordData = result;
         } else {
           // optimistic search failed word has a conjugation.
-          return findDictonaryForm(word, "kanjiIndex");
+          const conjugationSearch =  await findDictonaryForm(word, "kanjiIndex");
+          if (!conjugationSearch){
+            return wordData = null;;
+          }
         }
       } else {
-        let result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });;
+        const result = await lookupInDb(word, "readingIndex").catch((err) => { console.error(err) });
 
         if (result){
-          return wordData = result;
+          wordData = result;
         } else {
           // optimistic search failed word has a conjugation.
-          return findDictonaryForm(word, "readingIndex");
+          const conjugationSearch =  await findDictonaryForm(word, "readingIndex");
+          if (!conjugationSearch){
+            return wordData = null;;
+          }
         }
       }
+
+      let kanji = wordData.kanji[0]
+      let kana = wordData.kana[0]
+
+      // some words are hiragana only.
+      if (!kanji) kanji = kana;
+
+      // fetch audio for pronunciation
+      let audioFileName = await invoke("storeMediaFile", 6, {
+        "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${kanji}&kana=${kana}`,
+        "filename": `ankiAdd_${kanji}_${kana}.mp3`,
+        "skipHash": "7e2c2f954ef6051373ba916f000168dc",
+      })
+      
+      if (!audioFileName) {
+        audioFileName = "";
+      } else {
+        wordData.audioFileName = audioFileName;
+      }
+
+
+      return wordData;
     case "getData":
       return wordData;
     case "getSavedInfo":
@@ -492,26 +580,3 @@ JMdictWorker.onmessage = function(message) {
     openDB();
   }
 }
-
-// opens a connection to the indexDB.
-function openDB() {
-  console.log("openDB ...");
-  
-  var req = indexedDB.open(dbName, dbVersion);
-
-  req.onsuccess = function (evt) {
-    console.log("openDB DONE");
-    db = req.result;
-  };
-
-  req.onerror = function (evt) {
-    console.error("openDB:", evt.target.errorCode);
-    reject(evt.target.errorCode);
-  };
-
-  // innit db if needed.
-  req.onupgradeneeded = function (evt) {
-    console.error("openDB.onupgradeneeded hit in background script!");
-  }
-
-};

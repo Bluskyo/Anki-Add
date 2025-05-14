@@ -1,4 +1,4 @@
-const japaneseRE = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/;
+const japaneseRE = /([ぁ-んァ-ン一-龯])/;
 
 // if text is highlighted, japanese and ctrl is held down search for word.
 document.addEventListener("mouseup", (e) => {
@@ -19,12 +19,15 @@ document.addEventListener("mouseup", (e) => {
     
             if (currentElement.value && containsJP){
                 selectedText =  currentElement.value.substring(selectionStart, selectionEnd);
-                browser.runtime.sendMessage({
+                if (selectedText.length <= 10){
+                                    browser.runtime.sendMessage({
                     action: "saveSelection",
                     text: selectedText,
                     sentence: "",
                     url: currentLocation
                 }).catch(error => console.error("Error sending message:", error));
+                }
+
             }
         } else if (selectedText.length <= 10 && containsJP) {
             const textNode = selection.focusNode.parentNode.innerText;

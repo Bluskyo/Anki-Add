@@ -31,6 +31,112 @@ function invoke(action, version, params={}) {
     }) 
 }
 
+async function getDataForCard(response){
+    const wordData = response[0];
+    let reading = wordData.kana[0];
+    let word = wordData.kanji[0];
+    let furigana = "";
+
+    if (!word) {
+        word = reading;
+        furigana = reading
+    }
+
+    // always has to have correct kanji 
+    // and reading to download audio for flashcard.
+    const urlWord = word;
+    const urlReading = reading;
+
+    // format furigana for Anki-style display: e.g., 頂[いただ]く ////
+    if (wordData.furigana) {
+        const furiganaEntries = response[0].furigana;
+        for (const entry of furiganaEntries) {
+            const [[entryWord, furiganaData]] = Object.entries(entry);
+            // some words have special and normal reading, as such this logic should find 
+            // if word has same furigana reading as the reading. Else display the 
+            // special reading after the loop is done.
+            const data = Object.values(furiganaData);
+            // const furiganaReading = data.map(furigana => furigana.rt).join("");
+            const furiganaReading = data.map(furigana => {
+                if (furigana.ruby && furigana.rt){
+                    return furigana.rt
+                } else if (furigana.ruby && !furigana.rt){
+                    return furigana.ruby
+                }
+            }).join("");
+
+            if (entryWord === response[0].kanji[0] && furiganaReading == reading ) {
+                for (const data of furiganaData) {
+                    if (!data.rt) {
+                        furigana += `${data.ruby} `;
+                    } else {
+                        furigana += `${data.ruby}[${data.rt}]`;
+                    }
+                }
+                break;
+            }
+        }
+        // if no match is found display it as a special reading.
+        if (furigana == "") {
+            furigana = `${word}[${reading}]`;
+        }
+
+    } else if (word === reading){
+        furigana = reading;
+    } else {
+        furigana = `${word}[${reading}]`;
+    }
+
+    const meaning = document.getElementById("description").innerHTML;  
+
+    const ankiData = response[1];  
+    const savedUrl = ankiData.savedURL;
+    const savedDeck = ankiData.savedDeck;
+
+    // formatting for tags in anki
+    let allTags = [];
+    for (const definition of wordData.sense) {
+        for (const tag of definition.partOfSpeech){
+            allTags.push(tagsDict[tag]);
+        }                 
+    } 
+
+    // add jlpt levels to tags
+    if (wordData.jlptLevel){
+        for (const [key, object] of Object.entries(wordData.jlptLevel)) {
+            for (const level in object) {
+                allTags.push(object[level]);
+            }
+        }
+    }
+
+    const ankiFormat = allTags.join(",").replace(/ /g, "_");
+    const ankiTags = ankiFormat.replace(/,/g, " ");  
+
+    // marking word in example sentence logic:
+    let sentence = ankiData.sentence; 
+    if (useReading){ // for highlighting word in anki
+        furigana = reading;
+        word = reading;
+    } 
+
+    // marks entry or conjugated highlighted word.
+    if (sentence.includes(word)) {
+        const regex = new RegExp(word, "g"); 
+        sentence = sentence.replace(regex, `<mark>${word}</mark>`);
+    } else {
+        const selectedText = ankiData.selectedText;
+        const regex = new RegExp(selectedText, "g"); 
+        sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
+    }
+
+    return { 
+        "word" : word, "sentence" : sentence, "id" : wordData.id, "furigana" : furigana, 
+        "meaning" : meaning, "url" : savedUrl, "tags": ankiTags, "deck" : savedDeck,
+        "urlWord" : urlWord, "urlReading" : urlReading, "audioFileName": response[0].audioFileName
+    }
+}
+// rework fetching of audio 
 // adds the note to anki deck.
 async function addNote() {
     const models = await invoke('modelNames', 6);
@@ -42,93 +148,161 @@ async function addNote() {
 
     browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
         if (response) {
-            const wordData = response[0];
-            let word = wordData.kanji[0];
-            const furigana = wordData.kana[0];
-            const meaning = document.getElementById("description").innerHTML;  
-            const ankiData = response[1];  
-            const savedUrl = ankiData.savedURL;
-            const savedDeck = ankiData.savedDeck;
+            const cardData = await getDataForCard(response);
+            const ankiData = response[1];
 
-            // formatting for tags in anki
-            let allTags = [];
-            for (const definition of wordData.sense) {
-                for (const tag of definition.partOfSpeech){
-                    allTags.push(tagsDict[tag]);
-                }                 
-            } 
-            const ankiFormat = allTags.join(",").replace(/ /g, "_");
-            const ankiTags = ankiFormat.replace(/,/g, " ");  
-
-            // marking word in example sentence logic:
-            let sentence = ankiData.sentence; 
-            if (useReading){ // for highlighting word in anki
-                word = furigana; // uses reading instead of kanji.
-            } 
-            // marks entry or conjugated highlighted word.
-
-            if (sentence.includes(word)) {
-                const regex = new RegExp(word, "g"); 
-                sentence = sentence.replace(regex, `<mark>${word}</mark>`);
-            } else {
-                const selectedText = ankiData.selectedText;
-                const regex = new RegExp(selectedText, "g"); 
-                sentence = sentence.replace(regex, `<mark>${selectedText}</mark>`);
-            }
+            let result;
             
             // adds all info to anki note.
-            if (meaning.length > 0){
+            if (Object.keys(cardData).length > 0){
                 try {
-                    const result = await invoke('addNote', 6, {
-                        "note": {
-                            "deckName": savedDeck, 
-                            "modelName": "AnkiAdd",
-                            "fields": {
-                                "Word": word, 
-                                "Sentence": sentence,
-                                "JMdictSeq": wordData.id, 
-                                "Furigana": furigana, 
-                                "Meaning": meaning,
-                                "From": savedUrl 
-                            },
-                            "tags": ["AnkiAdd", ankiTags],
-                            "options": { // duplication scope
-                                "allowDuplicate": false,
-                                "duplicateScope": "deck",
-                                "duplicateScopeOptions": 
-                                {
-                                "deckName": savedDeck,
-                                "checkChildren": false,
-                                "checkAllModels": false }
-                            }, 
-                            "audio": [{ // considerably slows down creation of note type + ~500ms
-                                "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${word}&kana=${furigana}`,
-                                "filename": `ankiAdd_${word}_${furigana}.mp3`,
-                                "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-                                "fields": [
-                                    "Pronunciation"
-                                ]
-                            }]
-                        }
-                    })
+                    if (cardData.audioFileName){
+                        const audioData = await invoke("retrieveMediaFile", 6, {
+                            "filename": cardData.audioFileName
+                        })
+                        
+                        result = await invoke('addNote', 6, {
+                            "note": {
+                                "deckName": cardData.deck, 
+                                "modelName": "AnkiAdd",
+                                "fields": {
+                                    "Word": cardData.word, 
+                                    "Sentence": cardData.sentence,
+                                    "JMdictSeq": cardData.id, 
+                                    "Furigana": cardData.furigana, 
+                                    "Meaning": cardData.meaning,
+                                    "From": cardData.url 
+                                },
+                                "tags": ["AnkiAdd", cardData.tags],
+                                "options": { // duplication scope
+                                    "allowDuplicate": false,
+                                    "duplicateScope": "deck",
+                                    "duplicateScopeOptions": 
+                                    {
+                                    "deckName": cardData.savedDeck,
+                                    "checkChildren": false,
+                                    "checkAllModels": false }
+                                },
+                                "audio": [{
+                                    "filename": cardData.audioFileName,
+                                    "data": audioData,
+                                    "fields": ["Pronunciation"]
+                                }]
+                            }
+                        })
 
+
+                    } else {
+                        result = await invoke('addNote', 6, {
+                            "note": {
+                                "deckName": cardData.deck, 
+                                "modelName": "AnkiAdd",
+                                "fields": {
+                                    "Word": cardData.word, 
+                                    "Sentence": cardData.sentence,
+                                    "JMdictSeq": cardData.id, 
+                                    "Furigana": cardData.furigana, 
+                                    "Meaning": cardData.meaning,
+                                    "From": cardData.url 
+                                },
+                                "tags": ["AnkiAdd", cardData.tags],
+                                "options": { // duplication scope
+                                    "allowDuplicate": false,
+                                    "duplicateScope": "deck",
+                                    "duplicateScopeOptions": 
+                                    {
+                                    "deckName": cardData.savedDeck,
+                                    "checkChildren": false,
+                                    "checkAllModels": false }
+                                }
+                            }
+                        })
+                        
+                    }
                     if (result) {
-                        document.getElementById("status-message").textContent = `✅Added "${response[1].selectedText}" to "${response[1].savedDeck}".😊`
+                        document.getElementById("status-message").style.display = "block";
+                        document.getElementById("status-message").textContent = `✅Added "${ankiData.selectedText}" to "${ankiData.savedDeck}".😊`
                     }
 
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
-                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: ${response[1].savedDeck}.`;
+                        document.getElementById("status-message").style.display = "block";
+                        document.getElementById("status-message").textContent = `❗"${ankiData.selectedText}" is already in deck: "${ankiData.savedDeck}".\nUpdate existing note?`;
+                        document.getElementById("add-button").style.display = "none";
+                        document.getElementById("update-button").style.display = "block";
                     } else {
-                        document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
+                        document.getElementById("status-message").style.display = "block";
+                        document.getElementById("status-message").textContent = `❗Could not add "${ankiData.selectedText}" to "${ankiData.savedDeck}."😔`;
                     }
                 }
+            }
+        }
+    });
+    
+        
+}
+// rework fetching of audio 
+async function updateNote(){
+    browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
+        if (response) {
+            const cardData = await getDataForCard(response);
 
+            // first get id of duplicate note.
+            const noteID = await invoke("findNotes", 6, {
+                "query": `"deck:${cardData.deck}" word:${cardData.word}` // sorts to find only one note.
+            })
+
+            let result;
+
+            if (cardData.audioFileName) {
+
+                const audioData = await invoke("retrieveMediaFile", 6, {
+                    "filename": cardData.audioFileName
+                })
+
+                // update said note with new lookup info and example sentence.
+                result = await invoke("updateNote", 6, {
+                    "note": {
+                        "id": noteID[0],
+                        "fields": {
+                            "Word": cardData.word, 
+                            "Sentence": cardData.sentence,
+                            "JMdictSeq": cardData.id, 
+                            "Furigana": cardData.furigana, 
+                            "Meaning": cardData.meaning,
+                            "From": cardData.url 
+                        },
+                        "tags": ["AnkiAdd", cardData.tags],
+                        "audio": [{ 
+                            "filename": cardData.audioFileName,
+                            "data": audioData,
+                            "fields": ["Pronunciation"]
+                        }]
+                    }
+                });
+            } else { // no audio is found. 
+                result = await invoke("updateNote", 6, {
+                    "note": {
+                        "id": noteID[0],
+                        "fields": {
+                            "Word": cardData.word, 
+                            "Sentence": cardData.sentence,
+                            "JMdictSeq": cardData.id, 
+                            "Furigana": cardData.furigana, 
+                            "Meaning": cardData.meaning,
+                            "From": cardData.url 
+                        },
+                        "tags": ["AnkiAdd", cardData.tags]
+                    }
+                });
             }
 
-        }
-
+            if (result === null){
+                document.getElementById("status-message").style.display = "block";
+                document.getElementById("status-message").textContent = `✅Updated Note!😊`;
+            }
+        } 
     })
 }
 // creates the flashcard template in Anki.
@@ -137,13 +311,13 @@ async function createNoteType() {
         {
             "modelName": "AnkiAdd",
             "inOrderFields": ["Word", "Furigana", "Meaning", "Sentence", "JMdictSeq", "From", "Pronunciation"],
-            "css": ".card {\n   font-size: 25px;\n  --text-color: black;\n  font-family: Zen Old Mincho, serif;\n   font-weight: 400;\n}font-style: normal;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}",
+            "css": ".card {\n   font-size: 25px;\n  --text-color: black;\n  font-family: Zen Old Mincho, serif;\n   font-weight: 400;\n}font-style: normal;\n}\n.card.night_mode {\n  font-size: 25px;\n  --text-color: white;\n}\ndiv, a {\n  color: var(--text-color);\n}\n.big {\n  font-size: 50px;\n  text-align: center;\n}\n.medium {\n  font-size:30px;\n  text-align: center;\n}\n.small {\n  font-size: 18px;\n  text-align: center;\n}\n.tags {\n   font-size: 15px;\n    color: #00beb6;\n    margin: 5px 3px;\n }\n.tag-list {\n   font-size: 1.2rem;\n}\n.hidden {\n  display: none;\n }\nol {\n  margin-top: 0.5rem\n  }\n",
             "isCloze": false,
             "cardTemplates": [
                 {
                     "Name": "Japanese",
-                    "Front": "<div class=small>{{hint:Furigana}}</div>\n<div class=big>{{Word}}</div>\n<div class=small>{{hint:Sentence}}</div>",
-                    "Back": "<script>\nfunction isAndroid() {\n  return /Android/i.test(navigator.userAgent);\n}\nif (isAndroid()) {\n  document.body.classList.add(\"android\");\n} else {\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  {{Meaning}}\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=small>{{Furigana}}</div>\n    <div class=big>{{Word}}</div>\n  </a>\n  <a href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=small>{{Sentence}}</div>\n  </a>\n  <div class=definition>{{Meaning}}</div>\n</div>\n<script>\n  if (isAndroid()) {\n    document.querySelector(\".android-only\").style.display = \"block\";\n  } else {\n    document.querySelector(\".desktop-only\").style.display = \"block\";\n  }\n</script>\n<center>{{Pronunciation}}</center>"
+                    "Front": `<div class="big" id="entry" onclick="revealFurigana()">\n{{Word}}\n</div>\n<div class="big hidden" id="furigana" onclick="hideFurigana()">\n{{furigana:Furigana}}\n</div>\n<script>\nfunction revealFurigana() {\ndocument.getElementById("entry").classList.add("hidden");\ndocument.getElementById("furigana").classList.remove("hidden");\n}\nfunction hideFurigana() {\ndocument.getElementById("furigana").classList.add("hidden");\ndocument.getElementById("entry").classList.remove("hidden");\n}\n</script>\n<div class=small>{{hint:Sentence}}</div>`, 
+                    "Back": "<script>\nfunction isAndroid(){\n  return /Android/i.test(navigator.userAgent);\n}\nif(isAndroid()){\n  document.body.classList.add(\"android\");\n}else{\n  document.body.classList.add(\"desktop\");\n}\n</script>\n<script>\nfunction cleanSentence(){\n  const sentence=`{{Sentence}}`;\n  const wordMatch=sentence.match(/<mark>(.*?)<\\/mark>/);\n  if(wordMatch){\n    const jishoSentence=sentence.replaceAll(/(<br>)?<mark>(.*?)<\\/mark>(<br>)?/g,wordMatch[1]);\n    document.getElementById(\"jisho\").href=`https://jisho.org/search/${jishoSentence}`;\n    document.getElementById(\"jisho2\").href=`https://jisho.org/search/${jishoSentence}`;\n  }\n}\ncleanSentence();\n</script>\n<div class=\"android-only\" style=\"display: none;\">\n  <a href=\"kanjistudy://word?id={{JMdictSeq}}\">\n    <div class=\"big\">{{furigana:Furigana}}</div>\n  </a>\n  <a id=\"jisho\" href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=\"small\">{{Sentence}}</div>\n  </a>\n  <div class=\"definition\">{{Meaning}}</div>\n</div>\n<div class=\"desktop-only\" style=\"display: none;\">\n  <a href=\"https://jisho.org/search/{{Word}}\">\n    <div class=\"big\">{{furigana:Furigana}}</div>\n  </a>\n  <a id=\"jisho2\" href=\"https://jisho.org/search/{{Sentence}}\">\n    <div class=\"small\">{{Sentence}}</div>\n  </a>\n  <div class=\"definition\">{{Meaning}}</div>\n</div>\n<script>\nif(isAndroid()){\n  document.querySelector(\".android-only\").style.display=\"block\";\n}else{\n  document.querySelector(\".desktop-only\").style.display=\"block\";\n}\n</script>\n<center>{{Pronunciation}}</center>"
                 }
             ]
         }
@@ -183,69 +357,54 @@ invoke('deckNames', 6).then((decks) => {
         // gets the decks and display them in the popup window.
         const ankiDecksDropdDown = document.getElementById("anki-decks");
 
-        if (decks == undefined) {
-            let option = document.createElement("option");
-            let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
-            option.appendChild(optionText);
+        browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
+            const selectedDeck = response.savedDeck;
 
-            ankiDecksDropdDown.appendChild(option);
-        } else { 
-            browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
-                const selectedDeck = response.savedDeck;
-
-                // if other decks are present skips the default deck.
-                if(decks.length > 1){
-                    decks.shift();   
-                    if (!selectedDeck) {
-                        browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
-                    }
+            // if other decks are present skips the default deck.
+            if(decks.length > 1){
+                decks.shift();   
+                if (!selectedDeck) {
+                    browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
                 }
-    
-                // avoids undefined first deck and gets selected deck.
-                if (selectedDeck) {
+            }
+
+            // avoids undefined first deck and gets selected deck.
+            if (selectedDeck) {
+                let option = document.createElement("option");
+                option.text = selectedDeck;
+                ankiDecksDropdDown.add(option); ;
+            }
+            
+            // adds rest of available decks to dropdown menu.
+            for (let deck of decks) {  
+                if (deck !== selectedDeck){
                     let option = document.createElement("option");
-                    option.setAttribute("value", selectedDeck);
-                    let optionText = document.createTextNode(selectedDeck);
-                    option.appendChild(optionText);
-    
-                    ankiDecksDropdDown.appendChild(option);
+                    option.text = deck;
+                    ankiDecksDropdDown.add(option);
                 }
-                
-                // adds rest of available decks to dropdown menu.
-                for (let deck of decks) {  
-                    if (deck !== selectedDeck){
-                        let option = document.createElement("option");
-                        option.setAttribute("value", deck);
-                        let optionText = document.createTextNode(deck);
-                        option.appendChild(optionText);
-                
-                        ankiDecksDropdDown.appendChild(option);
-                    }
-                }
-    
-                // saves picked deck. 
-                document.getElementById("anki-decks").addEventListener("change", (e) => {
-                    const selectedOption = e.target.options[e.target.selectedIndex];
-                    browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
-                })
+            }
 
-            });
+            // saves picked deck. 
+            document.getElementById("anki-decks").addEventListener("change", (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
+            })
 
-        }
+        });
     }
 ).catch(error => {
     console.error("Error retrieving anki Info!", error);
+  
     const ankiDecksDropdDown = document.getElementById("anki-decks");
     let option = document.createElement("option");
-    let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
-    option.appendChild(optionText);
-
-    ankiDecksDropdDown.appendChild(option);
+    option.text = "Couldn't connect to Anki! Is Anki connect installed?";
+    ankiDecksDropdDown.add(option);
 });
 
 // listens to add button on popup window.
 window.onload = () => {
     document.getElementById("add-button").addEventListener("click", addNote);
+    document.getElementById("update-button").addEventListener("click", updateNote);
     document.getElementById("note-form").addEventListener("submit", (e) => {
         e.preventDefault(); // stop text from being cleared
         addNote();
@@ -260,14 +419,22 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 // displays saved info about word.
 browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     // response = [wordData, ankiData]
-    if (response[0]) {
-        document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
 
-        // display of each conjugation found along with links to said conjugation.
+    const wordData = response[0];
+    const ankiData = response[1];
+
+    if (wordData) {
+        if (wordData.kanji.length > 0){
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${wordData.kanji.join(", ")}</p>`;
+        } else {
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${wordData.kana[0]}</p>`;
+        }
+
+        // displays each conjugation found along with links to said conjugation.
         const conjugationElement = document.getElementById("conjugation");
-        if (response[0].forms) {
-            conjugationElement.innerHTML = response[1].selectedText + " > ";
-            for (const form of response[0].forms) {
+        if (wordData.forms) {
+            conjugationElement.innerHTML = ankiData.selectedText + " > ";
+            for (const form of wordData.forms) {
                 if (form.includes(" ")){
                     for (let element of form.split(" ")){
                         const link = conjugationLinks[element];
@@ -281,10 +448,10 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             }
         }
         
-        document.getElementById("reading").innerHTML = `<p class=readings>` + response[0].kana.join(", ") + `</p>`;
+        document.getElementById("reading").innerHTML = `<p class=readings>` + wordData.kana.join(", ") + `</p>`;
 
         let meaning = `<ol>`;
-        for (let definition of response[0].sense){
+        for (let definition of wordData.sense){
             if (definition.misc.length > 0) {
                 meaning  += '<span class="tags">' +
                 definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
@@ -300,21 +467,36 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
         document.getElementById("description").innerHTML = meaning;
 
         // shows common tag for common words.
-        const kanjis = response[0].kanjiCommon;
-        const readings = response[0].kanaCommon;
+        const kanjis = wordData.kanjiCommon;
+        const readings = wordData.kanaCommon;
         if (kanjis.includes(true) || readings.includes(true) ) {
-            document.getElementById("additional-info").innerHTML = `<b>` + "common word" + `</b>`;
+            document.getElementById("additional-info").innerHTML = `<b>common</b> `;
         }
 
-        // if word is usually written in kana, auto tick checkbox.
-        const usuallyKana = response[0].sense[0].misc[0]; 
+        // shows jlpt tags.
+        if (wordData.jlptLevel) {
+            if (wordData.jlptLevel.length == 1){
+                const object = wordData.jlptLevel[0];
+                const value = Object.values(object)[0];
+                document.getElementById("additional-info").innerHTML += `<b>JLPT ${value}</b>`;
+            } else {
+                document.getElementById("additional-info").innerHTML += `<b><br>JLPT: <b>`;
+                for (const object of wordData.jlptLevel){
+                    for (const key in object){
+                        document.getElementById("additional-info").innerHTML += `<b>${key}: ${object[key]}</b> `;
+                    }
+                }
+            }
+        }
+        // displays if word is usually written in kana, auto tick checkbox.
+        const usuallyKana = wordData.sense[0].misc[0]; 
         if (usuallyKana == "uk") {
             useReading = true;
             document.getElementById("kana-reading").checked = true;
         }
 
         // displays sentence from where word was highligted.
-        document.getElementById("sentence").value = response[1].sentence;
+        document.getElementById("sentence").value = ankiData.sentence;
 
     } else {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(async ankiData => {

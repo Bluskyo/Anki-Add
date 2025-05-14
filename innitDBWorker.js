@@ -2,9 +2,11 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
+importScripts("libs/fflate.min.js");
+
 onmessage = function(message) {
   if (message.data === "start") {
-    console.log("Worker received message")
+    console.log("Worker: received message")
     openDB();
   }
 }
@@ -46,24 +48,30 @@ function openDB() {
     store.createIndex("readingIndex", "kana", { unique: false, multiEntry: true });
     store.createIndex('meaningIndex', 'sense', { unique: false, multiEntry: true });
 
-    fetch("data/jmdict-eng-3.6.1.json")
-    .then(response => response.json())
-    .then(json => {
-      addJMdict(db, json.words);
-    });
+    // unzip and read file.
+    fetch("data/jmdictExtended.json.zip")
+    .then(res => res.arrayBuffer())
+    .then(buffer => {
+      const zipped = new Uint8Array(buffer);
+      const files = fflate.unzipSync(zipped); // fflate is available globally
+      const jsonString = new TextDecoder().decode(files["jmdictExtended.json"]);
+      const json = JSON.parse(jsonString);
+      innitJMdict(db, json.words);
+    })
+    .catch(err => console.error("Unzip failed:", err));
 
   };
-
 }
 
-function addJMdict(db, json) {
+function innitJMdict(db, json) {
  const transaction = db.transaction(["JMDict"], "readwrite");
  const store = transaction.objectStore("JMDict");
 
+  // parsing complete
   transaction.oncomplete = (evt) => {
-  console.timeEnd('Execution Time'); // timer end 
-  console.log("Worker: Everything is added to indexedDB!");
-  postMessage("done"); 
+    console.log("Worker: Everything is added to indexedDB!");
+    console.timeEnd('Execution Time'); // timer end 
+    postMessage("done");
   };
 
   transaction.onerror = (evt) => {
@@ -72,7 +80,6 @@ function addJMdict(db, json) {
 
   console.time('Execution Time'); // timer start
   console.log("Worker: Reading dictfile...");
-
   json.forEach(word => {
     const wordEntry = {
       id: word.id, // use existing ID
@@ -80,8 +87,16 @@ function addJMdict(db, json) {
       kanjiCommon: word.kanji.map(entry => entry.common), 
       kana: word.kana.map(entry => entry.text),  
       kanaCommon: word.kana.map(entry => entry.common),   
-      sense: word.sense.map(entry => entry)
+      sense: word.sense.map(entry => entry),
     };
+
+    if (word.jlptLevel){
+      wordEntry.jlptLevel = word.jlptLevel.map(entry => entry);
+    }
+
+    if (word.furigana){
+      wordEntry.furigana = word.furigana;
+    }
 
     store.add(wordEntry); // id is automatically chosen as id.
   })
