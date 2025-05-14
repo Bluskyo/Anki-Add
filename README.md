@@ -7,7 +7,7 @@ Firefox extension for quickly adding japanese words to Anki.
   <li>Detects most conjugated words.</li>
   <li>Fast card creation.</li>
   <li>Nicely stylized and interactive Anki cards.</li>
-  <li> <a href="https://play.google.com/store/apps/details?id=com.mindtwisted.kanjistudy/">Japanese Kanji Study</a> integration in anki cards. (only android)</li>
+  <li> <a href="https://play.google.com/store/apps/details?id=com.mindtwisted.kanjistudy&pcampaignid=web_share">Japanese Kanji Study</a> integration in anki cards. (only android)</li>
 </ul> 
 
 ## Sources📄
