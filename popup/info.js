@@ -219,7 +219,6 @@ async function addNote() {
                         })
                         
                     }
-
                     if (result) {
                         document.getElementById("status-message").style.display = "block";
                         document.getElementById("status-message").textContent = `✅Added "${ankiData.selectedText}" to "${ankiData.savedDeck}".😊`
@@ -306,7 +305,7 @@ async function updateNote(){
         } 
     })
 }
-
+// creates the flashcard template in Anki.
 async function createNoteType() {
     return await invoke('createModel', 6, 
         {
@@ -395,7 +394,7 @@ invoke('deckNames', 6).then((decks) => {
     }
 ).catch(error => {
     console.error("Error retrieving anki Info!", error);
-
+  
     const ankiDecksDropdDown = document.getElementById("anki-decks");
     let option = document.createElement("option");
     option.text = "Couldn't connect to Anki! Is Anki connect installed?";
