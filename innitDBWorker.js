@@ -2,6 +2,8 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
+importScripts("libs/fflate.min.js");
+
 onmessage = function(message) {
   if (message.data === "start") {
     console.log("Worker: received message")
@@ -46,11 +48,17 @@ function openDB() {
     store.createIndex("readingIndex", "kana", { unique: false, multiEntry: true });
     store.createIndex('meaningIndex', 'sense', { unique: false, multiEntry: true });
 
-    fetch("data/jmdictExtended.json")
-    .then(response => response.json())
-    .then(json => {
+    // unzip and read file.
+    fetch("data/jmdictExtended.json.zip")
+    .then(res => res.arrayBuffer())
+    .then(buffer => {
+      const zipped = new Uint8Array(buffer);
+      const files = fflate.unzipSync(zipped); // fflate is available globally
+      const jsonString = new TextDecoder().decode(files["jmdictExtended.json"]);
+      const json = JSON.parse(jsonString);
       innitJMdict(db, json.words);
     })
+    .catch(err => console.error("Unzip failed:", err));
 
   };
 }

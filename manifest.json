@@ -23,7 +23,10 @@
     "scripts": ["background.js"], 
     "persistent": true 
   },
-  "web_accessible_resources": ["data/jmdictExtended.json"],
+  "web_accessible_resources": [
+    "libs/fflate.min.js",
+    "data/jmdictExtended.json.zip"
+  ],
 
   "commands": {
     "_execute_browser_action": {
