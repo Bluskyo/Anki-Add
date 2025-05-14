@@ -518,16 +518,28 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           }
         }
       }
+
+      let kanji = wordData.kanji[0]
+      let kana = wordData.kana[0]
+
+      // some words are hiragana only.
+      if (!kanji) kanji = kana;
+
       // fetch audio for pronunciation
-      const audioFileName = await invoke("storeMediaFile", 6, {
-        "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${wordData.kanji[0]}&kana=${wordData.kana[0]}`,
-        "filename": `ankiAdd_${wordData.kanji[0]}_${wordData.kana[0]}.mp3`,
+      let audioFileName = await invoke("storeMediaFile", 6, {
+        "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${kanji}&kana=${kana}`,
+        "filename": `ankiAdd_${kanji}_${kana}.mp3`,
         "skipHash": "7e2c2f954ef6051373ba916f000168dc",
       })
-      wordData.audioFileName = audioFileName;
+      
+      if (!audioFileName) {
+        audioFileName = "";
+      } else {
+        wordData.audioFileName = audioFileName;
+      }
+
 
       return wordData;
-    
     case "getData":
       return wordData;
     case "getSavedInfo":

@@ -133,7 +133,7 @@ async function getDataForCard(response){
     return { 
         "word" : word, "sentence" : sentence, "id" : wordData.id, "furigana" : furigana, 
         "meaning" : meaning, "url" : savedUrl, "tags": ankiTags, "deck" : savedDeck,
-        "urlWord" : urlWord, "urlReading" : urlReading, "audioFilename": response[0].audioFileName
+        "urlWord" : urlWord, "urlReading" : urlReading, "audioFileName": response[0].audioFileName
     }
 }
 // rework fetching of audio 
@@ -149,67 +149,98 @@ async function addNote() {
     browser.runtime.sendMessage({ action: "getAllData" }).then(async response => {
         if (response) {
             const cardData = await getDataForCard(response);
+            const ankiData = response[1];
+
+            let result;
             
             // adds all info to anki note.
             if (Object.keys(cardData).length > 0){
                 try {
-                    const audioData = await invoke("retrieveMediaFile", 6, {
-                        "filename": cardData.audioFilename
-                    })
-                    
-                    const result = await invoke('addNote', 6, {
-                        "note": {
-                            "deckName": cardData.deck, 
-                            "modelName": "AnkiAdd",
-                            "fields": {
-                                "Word": cardData.word, 
-                                "Sentence": cardData.sentence,
-                                "JMdictSeq": cardData.id, 
-                                "Furigana": cardData.furigana, 
-                                "Meaning": cardData.meaning,
-                                "From": cardData.url 
-                            },
-                            "tags": ["AnkiAdd", cardData.tags],
-                            "options": { // duplication scope
-                                "allowDuplicate": false,
-                                "duplicateScope": "deck",
-                                "duplicateScopeOptions": 
-                                {
-                                "deckName": cardData.savedDeck,
-                                "checkChildren": false,
-                                "checkAllModels": false }
-                            },
-                            "audio": [{
-                                "filename": cardData.audioFilename,
-                                "data": audioData,
-                                "fields": ["Pronunciation"]
-                            }]
-                        }
-                    })
+                    if (cardData.audioFileName){
+                        const audioData = await invoke("retrieveMediaFile", 6, {
+                            "filename": cardData.audioFileName
+                        })
+                        
+                        result = await invoke('addNote', 6, {
+                            "note": {
+                                "deckName": cardData.deck, 
+                                "modelName": "AnkiAdd",
+                                "fields": {
+                                    "Word": cardData.word, 
+                                    "Sentence": cardData.sentence,
+                                    "JMdictSeq": cardData.id, 
+                                    "Furigana": cardData.furigana, 
+                                    "Meaning": cardData.meaning,
+                                    "From": cardData.url 
+                                },
+                                "tags": ["AnkiAdd", cardData.tags],
+                                "options": { // duplication scope
+                                    "allowDuplicate": false,
+                                    "duplicateScope": "deck",
+                                    "duplicateScopeOptions": 
+                                    {
+                                    "deckName": cardData.savedDeck,
+                                    "checkChildren": false,
+                                    "checkAllModels": false }
+                                },
+                                "audio": [{
+                                    "filename": cardData.audioFileName,
+                                    "data": audioData,
+                                    "fields": ["Pronunciation"]
+                                }]
+                            }
+                        })
+
+
+                    } else {
+                        result = await invoke('addNote', 6, {
+                            "note": {
+                                "deckName": cardData.deck, 
+                                "modelName": "AnkiAdd",
+                                "fields": {
+                                    "Word": cardData.word, 
+                                    "Sentence": cardData.sentence,
+                                    "JMdictSeq": cardData.id, 
+                                    "Furigana": cardData.furigana, 
+                                    "Meaning": cardData.meaning,
+                                    "From": cardData.url 
+                                },
+                                "tags": ["AnkiAdd", cardData.tags],
+                                "options": { // duplication scope
+                                    "allowDuplicate": false,
+                                    "duplicateScope": "deck",
+                                    "duplicateScopeOptions": 
+                                    {
+                                    "deckName": cardData.savedDeck,
+                                    "checkChildren": false,
+                                    "checkAllModels": false }
+                                }
+                            }
+                        })
+                        
+                    }
 
                     if (result) {
                         document.getElementById("status-message").style.display = "block";
-                        document.getElementById("status-message").textContent = `✅Added "${response[1].selectedText}" to "${response[1].savedDeck}".😊`
+                        document.getElementById("status-message").textContent = `✅Added "${ankiData.selectedText}" to "${ankiData.savedDeck}".😊`
                     }
 
                 // errors from the ankiConnect API is just strings. checks if string contains different errors.
                 } catch (error){
                     if (error.includes("duplicate")){  
                         document.getElementById("status-message").style.display = "block";
-                        document.getElementById("status-message").textContent = `❗"${response[1].selectedText}" is already in deck: "${response[1].savedDeck}".\nUpdate existing note?`;
+                        document.getElementById("status-message").textContent = `❗"${ankiData.selectedText}" is already in deck: "${ankiData.savedDeck}".\nUpdate existing note?`;
                         document.getElementById("add-button").style.display = "none";
                         document.getElementById("update-button").style.display = "block";
                     } else {
                         document.getElementById("status-message").style.display = "block";
-                        document.getElementById("status-message").textContent = `❗Could not add "${response.selectedText}" to "${response.savedDeck}."😔`;
+                        document.getElementById("status-message").textContent = `❗Could not add "${ankiData.selectedText}" to "${ankiData.savedDeck}."😔`;
                     }
                 }
             }
         }
     });
     
-
-
         
 }
 // rework fetching of audio 
@@ -223,40 +254,57 @@ async function updateNote(){
                 "query": `"deck:${cardData.deck}" word:${cardData.word}` // sorts to find only one note.
             })
 
-            const audioData = await invoke("retrieveMediaFile", 6, {
-                "filename": cardData.audioFilename
-            })
-    
-            // update said note with new lookup info and example sentence.
-            const result = await invoke("updateNote", 6, {
-                "note": {
-                    "id": noteID[0],
-                    "fields": {
-                        "Word": cardData.word, 
-                        "Sentence": cardData.sentence,
-                        "JMdictSeq": cardData.id, 
-                        "Furigana": cardData.furigana, 
-                        "Meaning": cardData.meaning,
-                        "From": cardData.url 
-                    },
-                    "tags": ["AnkiAdd", cardData.tags],
-                    "audio": [{ 
-                        "filename": cardData.audioFilename,
-                        "data": audioData,
-                        "fields": ["Pronunciation"]
-                    }]
-                }
-            });
+            let result;
+
+            if (cardData.audioFileName) {
+
+                const audioData = await invoke("retrieveMediaFile", 6, {
+                    "filename": cardData.audioFileName
+                })
+
+                // update said note with new lookup info and example sentence.
+                result = await invoke("updateNote", 6, {
+                    "note": {
+                        "id": noteID[0],
+                        "fields": {
+                            "Word": cardData.word, 
+                            "Sentence": cardData.sentence,
+                            "JMdictSeq": cardData.id, 
+                            "Furigana": cardData.furigana, 
+                            "Meaning": cardData.meaning,
+                            "From": cardData.url 
+                        },
+                        "tags": ["AnkiAdd", cardData.tags],
+                        "audio": [{ 
+                            "filename": cardData.audioFileName,
+                            "data": audioData,
+                            "fields": ["Pronunciation"]
+                        }]
+                    }
+                });
+            } else { // no audio is found. 
+                result = await invoke("updateNote", 6, {
+                    "note": {
+                        "id": noteID[0],
+                        "fields": {
+                            "Word": cardData.word, 
+                            "Sentence": cardData.sentence,
+                            "JMdictSeq": cardData.id, 
+                            "Furigana": cardData.furigana, 
+                            "Meaning": cardData.meaning,
+                            "From": cardData.url 
+                        },
+                        "tags": ["AnkiAdd", cardData.tags]
+                    }
+                });
+            }
 
             if (result === null){
                 document.getElementById("status-message").style.display = "block";
                 document.getElementById("status-message").textContent = `✅Updated Note!😊`;
             }
-
-        }
-
+        } 
     })
-
 }
 
 async function createNoteType() {
@@ -310,64 +358,48 @@ invoke('deckNames', 6).then((decks) => {
         // gets the decks and display them in the popup window.
         const ankiDecksDropdDown = document.getElementById("anki-decks");
 
-        if (decks == undefined) {
-            let option = document.createElement("option");
-            let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
-            option.appendChild(optionText);
+        browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
+            const selectedDeck = response.savedDeck;
 
-            ankiDecksDropdDown.appendChild(option);
-        } else { 
-            browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
-                const selectedDeck = response.savedDeck;
-
-                // if other decks are present skips the default deck.
-                if(decks.length > 1){
-                    decks.shift();   
-                    if (!selectedDeck) {
-                        browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
-                    }
+            // if other decks are present skips the default deck.
+            if(decks.length > 1){
+                decks.shift();   
+                if (!selectedDeck) {
+                    browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
                 }
-    
-                // avoids undefined first deck and gets selected deck.
-                if (selectedDeck) {
+            }
+
+            // avoids undefined first deck and gets selected deck.
+            if (selectedDeck) {
+                let option = document.createElement("option");
+                option.text = selectedDeck;
+                ankiDecksDropdDown.add(option); ;
+            }
+            
+            // adds rest of available decks to dropdown menu.
+            for (let deck of decks) {  
+                if (deck !== selectedDeck){
                     let option = document.createElement("option");
-                    option.setAttribute("value", selectedDeck);
-                    let optionText = document.createTextNode(selectedDeck);
-                    option.appendChild(optionText);
-    
-                    ankiDecksDropdDown.appendChild(option);
+                    option.text = deck;
+                    ankiDecksDropdDown.add(option);
                 }
-                
-                // adds rest of available decks to dropdown menu.
-                for (let deck of decks) {  
-                    if (deck !== selectedDeck){
-                        let option = document.createElement("option");
-                        option.setAttribute("value", deck);
-                        let optionText = document.createTextNode(deck);
-                        option.appendChild(optionText);
-                
-                        ankiDecksDropdDown.appendChild(option);
-                    }
-                }
-    
-                // saves picked deck. 
-                document.getElementById("anki-decks").addEventListener("change", (e) => {
-                    const selectedOption = e.target.options[e.target.selectedIndex];
-                    browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
-                })
+            }
 
-            });
+            // saves picked deck. 
+            document.getElementById("anki-decks").addEventListener("change", (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
+            })
 
-        }
+        });
     }
 ).catch(error => {
     console.error("Error retrieving anki Info!", error);
+
     const ankiDecksDropdDown = document.getElementById("anki-decks");
     let option = document.createElement("option");
-    let optionText = document.createTextNode("Couldn't connect to Anki! Is Anki connect installed?");
-    option.appendChild(optionText);
-
-    ankiDecksDropdDown.appendChild(option);
+    option.text = "Couldn't connect to Anki! Is Anki connect installed?";
+    ankiDecksDropdDown.add(option);
 });
 
 // listens to add button on popup window.
@@ -389,18 +421,21 @@ let useReading = false; // remembers if entry should be in hiragana or not.
 browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     // response = [wordData, ankiData]
 
-    if (response[0]) {
-        if (response[0].kanji.length > 0){
-            document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kanji.join(", ")}</p>`;
+    const wordData = response[0];
+    const ankiData = response[1];
+
+    if (wordData) {
+        if (wordData.kanji.length > 0){
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${wordData.kanji.join(", ")}</p>`;
         } else {
-            document.getElementById("selected-text").innerHTML = `<p class=kanji>${response[0].kana[0]}</p>`;
+            document.getElementById("selected-text").innerHTML = `<p class=kanji>${wordData.kana[0]}</p>`;
         }
 
         // displays each conjugation found along with links to said conjugation.
         const conjugationElement = document.getElementById("conjugation");
-        if (response[0].forms) {
-            conjugationElement.innerHTML = response[1].selectedText + " > ";
-            for (const form of response[0].forms) {
+        if (wordData.forms) {
+            conjugationElement.innerHTML = ankiData.selectedText + " > ";
+            for (const form of wordData.forms) {
                 if (form.includes(" ")){
                     for (let element of form.split(" ")){
                         const link = conjugationLinks[element];
@@ -414,10 +449,10 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             }
         }
         
-        document.getElementById("reading").innerHTML = `<p class=readings>` + response[0].kana.join(", ") + `</p>`;
+        document.getElementById("reading").innerHTML = `<p class=readings>` + wordData.kana.join(", ") + `</p>`;
 
         let meaning = `<ol>`;
-        for (let definition of response[0].sense){
+        for (let definition of wordData.sense){
             if (definition.misc.length > 0) {
                 meaning  += '<span class="tags">' +
                 definition.partOfSpeech.map(pos => tagsDict[pos]).join(", ") + " | " +
@@ -433,21 +468,21 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
         document.getElementById("description").innerHTML = meaning;
 
         // shows common tag for common words.
-        const kanjis = response[0].kanjiCommon;
-        const readings = response[0].kanaCommon;
+        const kanjis = wordData.kanjiCommon;
+        const readings = wordData.kanaCommon;
         if (kanjis.includes(true) || readings.includes(true) ) {
             document.getElementById("additional-info").innerHTML = `<b>common</b> `;
         }
 
         // shows jlpt tags.
-        if (response[0].jlptLevel) {
-            if (response[0].jlptLevel.length == 1){
-                const object = response[0].jlptLevel[0];
+        if (wordData.jlptLevel) {
+            if (wordData.jlptLevel.length == 1){
+                const object = wordData.jlptLevel[0];
                 const value = Object.values(object)[0];
                 document.getElementById("additional-info").innerHTML += `<b>JLPT ${value}</b>`;
             } else {
                 document.getElementById("additional-info").innerHTML += `<b><br>JLPT: <b>`;
-                for (const object of response[0].jlptLevel){
+                for (const object of wordData.jlptLevel){
                     for (const key in object){
                         document.getElementById("additional-info").innerHTML += `<b>${key}: ${object[key]}</b> `;
                     }
@@ -455,14 +490,14 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
             }
         }
         // displays if word is usually written in kana, auto tick checkbox.
-        const usuallyKana = response[0].sense[0].misc[0]; 
+        const usuallyKana = wordData.sense[0].misc[0]; 
         if (usuallyKana == "uk") {
             useReading = true;
             document.getElementById("kana-reading").checked = true;
         }
 
         // displays sentence from where word was highligted.
-        document.getElementById("sentence").value = response[1].sentence;
+        document.getElementById("sentence").value = ankiData.sentence;
 
     } else {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(async ankiData => {

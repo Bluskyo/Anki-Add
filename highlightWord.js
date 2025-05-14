@@ -19,12 +19,15 @@ document.addEventListener("mouseup", (e) => {
     
             if (currentElement.value && containsJP){
                 selectedText =  currentElement.value.substring(selectionStart, selectionEnd);
-                browser.runtime.sendMessage({
+                if (selectedText.length <= 10){
+                                    browser.runtime.sendMessage({
                     action: "saveSelection",
                     text: selectedText,
                     sentence: "",
                     url: currentLocation
                 }).catch(error => console.error("Error sending message:", error));
+                }
+
             }
         } else if (selectedText.length <= 10 && containsJP) {
             const textNode = selection.focusNode.parentNode.innerText;
