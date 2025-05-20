@@ -16,4 +16,5 @@ Firefox extension for quickly adding japanese words to Anki.
   <li> Japanese dictionary: <a href="https://www.edrdg.org/jmdict/j_jmdict.html">JMdict</a></li>
   <li> JMDict in JSON format for easier parsing: <a href="https://github.com/scriptin/jmdict-simplified">jmdict-simplified</a></li>
   <li> Font used in cards: <a href="https://fonts.google.com/specimen/Zen+Old+Mincho">Zen Old Mincho</a></li>
+  <li> Fflate Library used for unzipping files: <a href="https://github.com/101arrowz/fflate">Github Repo</a></li>
 </ul> 
