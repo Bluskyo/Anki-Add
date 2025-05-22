@@ -1,11 +1,11 @@
 {
   "manifest_version": 2,
   "name": "Anki-Add",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Makes it easier to add japanese words directly in to anki.",
   "homepage_url": "https://github.com/Bluskyo/Anki-Add",
   "icons": {
-    "48": "icons/anki-Add-Icon.svg"
+    "128": "icons/anki-Add-Icon.svg"
   },
   "browser_action": {
     "default_icon": "icons/anki-Add-Icon.svg",
