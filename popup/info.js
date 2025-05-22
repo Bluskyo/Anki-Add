@@ -65,7 +65,7 @@ async function getDataForCard(response){
                 }
             }).join("");
 
-            if (entryWord === response[0].kanji[0] && furiganaReading == reading ) {
+            if (entryWord === response[0].kanji[0] && furiganaReading === reading) {
                 for (const data of furiganaData) {
                     if (!data.rt) {
                         furigana += `${data.ruby} `;
