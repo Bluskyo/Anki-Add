@@ -1,9 +1,10 @@
-## Anki-add <img src="https://github.com/user-attachments/assets/e31aff8f-578d-47aa-ab28-9b80973aec88" width="100" height="100">
+<div align="center"> 
+ <img src="https://github.com/user-attachments/assets/e31aff8f-578d-47aa-ab28-9b80973aec88" width="150" height="150">
+ <h2>Anki-add</h2> <br> 
+</div>
+A Firefox extension for quickly adding japanese words to Anki. <br> <br>
 
-A Firefox extension for quickly adding japanese words to Anki. <br>
-<br>
- <b>Download:</b> <br>
-[![Mozilla Add-on Version](https://img.shields.io/amo/v/anki-add)](https://addons.mozilla.org/firefox/addon/anki-add/) <br>
+<img alt="Mozilla Add-on Version" src="https://img.shields.io/amo/v/anki-add?link=https%3A%2F%2Faddons.mozilla.org%2Ffirefox%2Faddon%2Fanki-add%2F">
 
 Hover over a word while holding ctrl to look it up. <br>
 ![Skjermbilde 2025-05-21 030250](https://github.com/user-attachments/assets/f1de6102-892f-49fc-9a99-e00e01599215 ) <br>
