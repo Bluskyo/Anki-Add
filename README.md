@@ -1,5 +1,8 @@
-# Anki-Add
-Firefox extension for quickly adding japanese words to Anki. <br>
+## Anki-add <img src="https://github.com/user-attachments/assets/e31aff8f-578d-47aa-ab28-9b80973aec88" width="100" height="100">
+
+A Firefox extension for quickly adding japanese words to Anki. <br>
+<br>
+ <b>Download:</b> <br>
 [![Mozilla Add-on Version](https://img.shields.io/amo/v/anki-add)](https://addons.mozilla.org/firefox/addon/anki-add/) <br>
 
 Hover over a word while holding ctrl to look it up. <br>
