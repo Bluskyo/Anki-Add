@@ -1,39 +1,50 @@
 const japaneseRE = /([ぁ-んァ-ン一-龯])/;
 
-// if text is highlighted, japanese and ctrl is held down search for word.
-document.addEventListener("mouseup", (e) => {
-    if(e.ctrlKey){
-        let selection = document.getSelection();
-        let selectedText = selection.toString().trim();
-        let containsJP = japaneseRE.test(selectedText);
+function isSentence(selection){
+    if (selection.length >= 15) return true;
+    const regex = /[\s。？！、…　]/;
+    if (regex.test(selection)) return true;
 
-        const currentElement = document.activeElement;
-        const currentLocation = window.location.href;
-    
-        // checks input tag, getselection cant read these.
-        if (selectedText == "" && currentElement.tagName === "TEXTAREA" || currentElement.tagName === "INPUT") {  
-            const selectionStart = currentElement.selectionStart;
-            const selectionEnd = currentElement.selectionEnd;
-    
-            containsJP = japaneseRE.test(currentElement.value);
-    
-            if (currentElement.value && containsJP){
-                selectedText =  currentElement.value.substring(selectionStart, selectionEnd);
-                if (selectedText.length <= 10){
-                                    browser.runtime.sendMessage({
+    return false;
+}
+
+// if text is highlighted, japanese and ctrl is held down search for word.
+document.addEventListener("mouseup", (e) => { 
+    let selection = document.getSelection();
+    let selectedText = document.getSelection().toString().trim();
+    let containsJP = japaneseRE.test(selectedText);
+
+    const currentElement = document.activeElement;
+
+    const websiteURL = window.location.href;
+
+    // checks html input tag, getselection cant read these.
+    if (selectedText == "" && currentElement.tagName === "TEXTAREA" || currentElement.tagName === "INPUT") {  
+        const selectionStart = currentElement.selectionStart;
+        const selectionEnd = currentElement.selectionEnd;
+
+        containsJP = japaneseRE.test(currentElement.value);
+
+        if (currentElement.value && containsJP){
+            selectedText =  currentElement.value.substring(selectionStart, selectionEnd);
+
+            if (!selectedText) return false;
+
+            if(!isSentence(selectedText)) {
+                browser.runtime.sendMessage({
                     action: "saveSelection",
                     text: selectedText,
-                    sentence: "",
-                    url: currentLocation
+                    sentence: currentElement.value,
+                    url: websiteURL
                 }).catch(error => console.error("Error sending message:", error));
-                }
-
             }
-        } else if (selectedText.length <= 10 && containsJP) {
-            const textNode = selection.focusNode.parentNode.innerText;
+        }
+    } else if (containsJP) {
+        const textNode = selection.focusNode.textContent;
 
-            // matches everything the not in [。] after that counts every proceeding match devided by "。".
+        if(!isSentence(selectedText)) {
             // attempts to automatically get the sentence the word was taken from. 
+            // stopping at "。" to complete the sentence
             let sentence = "";
             const match = textNode.match(/[^。]*。?/g); 
             
@@ -45,9 +56,10 @@ document.addEventListener("mouseup", (e) => {
                 action: "saveSelection",
                 text: selectedText,
                 sentence: sentence,
-                url: currentLocation
+                url: websiteURL
             }).catch(error => console.error("Error sending message:", error));
         }
-    } 
 
+    }
+    
 });

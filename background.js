@@ -2,6 +2,40 @@ const dbName = "jpdict";
 const dbVersion = 1;
 var db;
 
+async function invoke(action, version, params={}) {
+  try {
+    return await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.addEventListener('error', () => reject('failed to issue request'));
+      xhr.addEventListener('load', () => {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          if (Object.getOwnPropertyNames(response).length != 2) {
+            throw 'response has an unexpected number of fields';
+          }
+          if (!response.hasOwnProperty('error')) {
+            throw 'response is missing required error field';
+          }
+          if (!response.hasOwnProperty('result')) {
+            throw 'response is missing required result field';
+          }
+          if (response.error) {
+            throw response.error;
+          }
+          resolve(response.result);
+        } catch (e) {
+          reject(e);
+        }
+      });
+
+      xhr.open('POST', 'http://127.0.0.1:8765');
+      xhr.send(JSON.stringify({ action, version, params }));
+    });
+  } catch (error) {
+    throw error;
+  } 
+}
+
 function openDB() {
   console.log("openDB ...");
   
@@ -291,38 +325,6 @@ function findConjugations(word) {
   return conjugationData;  
 }
 
-function invoke(action, version, params={}) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.addEventListener('error', () => reject('failed to issue request'));
-        xhr.addEventListener('load', () => {
-            try {
-                const response = JSON.parse(xhr.responseText);
-                if (Object.getOwnPropertyNames(response).length != 2) {
-                    throw 'response has an unexpected number of fields';
-                }
-                if (!response.hasOwnProperty('error')) {
-                    throw 'response is missing required error field';
-                }
-                if (!response.hasOwnProperty('result')) {
-                    throw 'response is missing required result field';
-                }
-                if (response.error) {
-                    throw response.error;
-                }
-                resolve(response.result);
-            } catch (e) {
-                reject(e);
-            }
-        });
-
-        xhr.open('POST', 'http://127.0.0.1:8765');
-        xhr.send(JSON.stringify({action, version, params}));
-    }).catch((error) => {
-        throw error;
-    }) 
-}
-
 // inflections that doesnt have any more conjugations.
 const endInflection = {
   "な" : ["imperative negative", "verb-done"], // negative from with na removed is dictonary form
@@ -482,12 +484,7 @@ const inflections = {
   "じゃなかった" : ["negative past", "na-adj"]
 };
 
-// data about word is stored here 
-// and sent to pop-up when needed
 let wordData = null;
-
-// data for the anki card to be made 
-// is stored here.
 let ankiData = {};
 
 browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
@@ -498,7 +495,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       ankiData.savedURL = message.url; // gets the url of the website the word is from.
 
       const word = message.text;
-      const kanjiRe = /[一-龯]/;
+      const kanjiRe = /[\u4E00-\u9FFF]/;
       const containsKanji = kanjiRe.test(word);
 
       // optimistic search:
@@ -546,8 +543,6 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       } else {
         wordData.audioFileName = audioFileName;
       }
-
-
       return wordData;
     case "getData":
       return wordData;

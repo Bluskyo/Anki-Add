@@ -1,34 +1,35 @@
+async function invoke(action, version, params={}) {
+    try {
+        return await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.addEventListener('error', () => reject('failed to issue request'));
+            xhr.addEventListener('load', () => {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (Object.getOwnPropertyNames(response).length != 2) {
+                        throw 'response has an unexpected number of fields';
+                    }
+                    if (!response.hasOwnProperty('error')) {
+                        throw 'response is missing required error field';
+                    }
+                    if (!response.hasOwnProperty('result')) {
+                        throw 'response is missing required result field';
+                    }
+                    if (response.error) {
+                        throw response.error;
+                    }
+                    resolve(response.result);
+                } catch (e) {
+                    reject(e);
+                }
+            });
 
-function invoke(action, version, params={}) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.addEventListener('error', () => reject('failed to issue request'));
-        xhr.addEventListener('load', () => {
-            try {
-                const response = JSON.parse(xhr.responseText);
-                if (Object.getOwnPropertyNames(response).length != 2) {
-                    throw 'response has an unexpected number of fields';
-                }
-                if (!response.hasOwnProperty('error')) {
-                    throw 'response is missing required error field';
-                }
-                if (!response.hasOwnProperty('result')) {
-                    throw 'response is missing required result field';
-                }
-                if (response.error) {
-                    throw response.error;
-                }
-                resolve(response.result);
-            } catch (e) {
-                reject(e);
-            }
+            xhr.open('POST', 'http://127.0.0.1:8765');
+            xhr.send(JSON.stringify({ action, version, params }));
         });
-
-        xhr.open('POST', 'http://127.0.0.1:8765');
-        xhr.send(JSON.stringify({action, version, params}));
-    }).catch((error) => {
+    } catch (error) {
         throw error;
-    }) 
+    } 
 }
 
 async function getDataForCard(response){
@@ -354,44 +355,44 @@ function handleChange() {
 
 // gets decks from anki and saves chosen deck.
 invoke('deckNames', 6).then((decks) => {
-        // gets the decks and display them in the popup window.
-        const ankiDecksDropdDown = document.getElementById("anki-decks");
+    // gets the decks and display them in the popup window.
+    const ankiDecksDropdDown = document.getElementById("anki-decks");
 
-        browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
-            const selectedDeck = response.savedDeck;
+    browser.runtime.sendMessage({ action: "getSavedInfo" }).then(response => {
+        const selectedDeck = response.savedDeck;
 
-            // if other decks are present skips the default deck.
-            if(decks.length > 1){
-                decks.shift();   
-                if (!selectedDeck) {
-                    browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
-                }
+        // if other decks are present skips the default deck.
+        if(decks.length > 1){
+            decks.shift();   
+            if (!selectedDeck) {
+                browser.runtime.sendMessage({ action: "saveDeck",  text: decks[0]});
             }
+        }
 
-            // avoids undefined first deck and gets selected deck.
-            if (selectedDeck) {
+        // avoids undefined first deck and gets selected deck.
+        if (selectedDeck) {
+            let option = document.createElement("option");
+            option.text = selectedDeck;
+            ankiDecksDropdDown.add(option); ;
+        }
+        
+        // adds rest of available decks to dropdown menu.
+        for (let deck of decks) {  
+            if (deck !== selectedDeck){
                 let option = document.createElement("option");
-                option.text = selectedDeck;
-                ankiDecksDropdDown.add(option); ;
+                option.text = deck;
+                ankiDecksDropdDown.add(option);
             }
-            
-            // adds rest of available decks to dropdown menu.
-            for (let deck of decks) {  
-                if (deck !== selectedDeck){
-                    let option = document.createElement("option");
-                    option.text = deck;
-                    ankiDecksDropdDown.add(option);
-                }
-            }
+        }
 
-            // saves picked deck. 
-            document.getElementById("anki-decks").addEventListener("change", (e) => {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
-            })
+        // saves picked deck. 
+        document.getElementById("anki-decks").addEventListener("change", (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            browser.runtime.sendMessage({ action: "saveDeck",  text: selectedOption.text});
+        })
 
-        });
-    }
+    });
+}
 ).catch(error => {
     console.error("Error retrieving anki Info!", error);
   
@@ -501,16 +502,23 @@ browser.runtime.sendMessage({ action: "getAllData"}).then(response => {
     } else {
         browser.runtime.sendMessage({ action: "getSavedInfo"}).then(async ankiData => {
             const dbStatus = await browser.runtime.sendMessage({ action: "dbStatus"});
+            const commands = await browser.commands.getAll();
+            let openPopupCommand;
 
-            if (dbStatus) {
+            for (const command of commands) {
+                if (command.name === "_execute_browser_action") {
+                    openPopupCommand = command
+                }
+            }
+
+            if (dbStatus && commands) {
                 const word = ankiData.selectedText;
                 if (word){
                     document.getElementById("reading").innerHTML = `Could not find "${word}" in dictonary!`;
                 } else {
                     document.getElementById("reading").innerHTML = 
-                    `Select a word to look up!<br>` +
-                    `(ctrl + highlight) to look up a word)<br>` + 
-                    `(ctrl + Q) to open popup window)`;
+                    `Highlight a japanese word to look up!<br>` +
+                    `${openPopupCommand.shortcut} to open popup window`;
                 }
             } else {
                 document.getElementById("reading").innerHTML = `Dictonary file is being read📖 Please wait...<br>(Should take around 30 seconds.) `
