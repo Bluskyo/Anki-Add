@@ -1,11 +1,12 @@
 :root {
-    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
 html,
 body {
   width: 500px;
   background-color: #302F58;
+  color: white;
 }
 
 label {
@@ -42,13 +43,8 @@ hr.line {
   border-top: 1px solid white;
 }
 
-h1 {
-  color: white;
-  margin-top: 1em;
-}
-
 p {
-  color: white;
+  margin: 0px;
 }
 
 a {
@@ -60,17 +56,19 @@ a {
 }
 
 .word-info {
-  max-width: fit-content;
-  position: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .example-sentence {
   font-size: 1em;
   text-indent: 3px;
   padding: 5px;
-  margin: 0.5em 1;
-  border: 2px solid #ccc;
   margin-top: 1em;
+  border: 2px solid #ccc;
   width: 480px;
 }
 
@@ -80,33 +78,32 @@ a {
 
 .kanji {
   font-size: 35px;
-  margin: 5px 1px 0px 40px;
 }
 
 .readings {
-  font-size: 15px;
-  margin: 5px 1px 0px 40px;
+  font-size: 20px;
 }
 
 .tags {
   font-size: 15px; 
   color: #00beb6; 
-  margin: 5px 3px;
 }
 
-.tag-list {
-  font-size: 1.2rem; 
+#add-button {
+  display: block;
+}
+
+#update-button {
+  display: none;
+}
+
+#status-message {
+  display: hidden;
+  opacity: 0;
   margin-bottom: 10px;
 }
 
-.add-button {
-  display:block;
-}
-
-.update-button {
-  display:none;
-}
-
-.status-message {
-  display:none;
+#status-message.visible {
+  display: block;
+  opacity: 1;
 }

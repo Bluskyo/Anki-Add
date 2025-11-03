@@ -531,18 +531,6 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       // some words are hiragana only.
       if (!kanji) kanji = kana;
 
-      // fetch audio for pronunciation
-      let audioFileName = await invoke("storeMediaFile", 6, {
-        "url": `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=${kanji}&kana=${kana}`,
-        "filename": `ankiAdd_${kanji}_${kana}.mp3`,
-        "skipHash": "7e2c2f954ef6051373ba916f000168dc",
-      })
-      
-      if (!audioFileName) {
-        audioFileName = "";
-      } else {
-        wordData.audioFileName = audioFileName;
-      }
       return wordData;
     case "getData":
       return wordData;
@@ -552,9 +540,6 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       return [wordData, ankiData];
     case "saveSentence":
       ankiData.sentence = message.text;
-      return true;
-    case "saveDeck":
-      ankiData.savedDeck =  message.text;
       return true;
     case "dbStatus":
       return dbIsPopulated;
