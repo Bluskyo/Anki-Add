@@ -13,10 +13,10 @@
 </div>
 
 Hover over a word while holding ctrl to look it up. <br>
-![Skjermbilde 2025-05-21 030250](https://github.com/user-attachments/assets/f1de6102-892f-49fc-9a99-e00e01599215 ) <br>
+<img width="1703" height="725" alt="2025-11-03-232903_hyprshot" src="https://github.com/user-attachments/assets/f7ed6854-d076-47c3-b134-6aac6974019b" /><br>
 
 The addon can find and identify different conjugations, and add it quickly to a Anki deck.<br>
-![Skjermbilde 2025-05-21 030421](https://github.com/user-attachments/assets/53314d34-3cce-4bbf-a6af-3ebd15220242) <br>
+<img width="513" height="392" alt="2025-11-03-232622_hyprshot" src="https://github.com/user-attachments/assets/a1af4e4a-d376-4466-b068-5fec83bc25ec" /><br>
 
 Flashcards have 2 hints available. reading of word and example sentence, which can be toggled.<br>
 ![Skjermbilde 2025-06-05 180001](https://github.com/user-attachments/assets/c1f16caf-0f88-4c3c-8e41-3638809f8812) <br>
