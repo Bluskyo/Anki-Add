@@ -4,7 +4,7 @@
   "version": "1.3",
   "browser_specific_settings": {
     "gecko": {
-      "id": "@Anki-Add",
+      "id": "{71e42353-7fec-4033-ab9f-9d3d1a56af75}",
       "data_collection_permissions": {
         "required": ["none"]
       }
