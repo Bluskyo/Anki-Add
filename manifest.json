@@ -1,7 +1,15 @@
 {
   "manifest_version": 2,
   "name": "Anki-Add",
-  "version": "1.2",
+  "version": "1.3",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "@Anki-Add",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "description": "Makes it easier to add japanese words directly in to anki.",
   "homepage_url": "https://github.com/Bluskyo/Anki-Add",
   "icons": {
